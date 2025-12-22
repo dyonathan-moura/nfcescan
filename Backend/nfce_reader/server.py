@@ -160,7 +160,7 @@ async def scan_from_url(
     
     # Fazer scraping da NFC-e
     try:
-        data = scraper.fetch_nfce(url)
+        data = scraper.scrape_nfce(url, "RS")
     except Exception as e:
         raise HTTPException(
             status_code=500,
