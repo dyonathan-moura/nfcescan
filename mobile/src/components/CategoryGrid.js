@@ -5,8 +5,10 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Dimensions } from 'react-native';
 import { COLORS, SIZES } from '../constants/theme';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function CategoryGrid({
     categories = [],
@@ -16,110 +18,106 @@ export default function CategoryGrid({
     showAddButton = true,
     onAddPress
 }) {
+    // Calcular tamanho do botão baseado no container
+    // Container width aproximado: screen width - padding do modal (40) - padding do GlassCard (32)
+    const containerWidth = SCREEN_WIDTH - 72;
+    const gap = 8;
+    const buttonSize = (containerWidth - (gap * (columns - 1))) / columns;
+
     return (
         <View style={styles.container}>
-            <ScrollView
-                horizontal={false}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.gridContainer}
-            >
-                <View style={styles.grid}>
-                    {categories.map((cat) => (
-                        <TouchableOpacity
-                            key={cat.id}
+            <View style={styles.grid}>
+                {categories.map((cat) => (
+                    <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                            styles.categoryButton,
+                            { width: buttonSize, height: buttonSize },
+                            selectedId === cat.id && styles.categoryButtonSelected,
+                        ]}
+                        onPress={() => onSelect(cat.id)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.categoryIcon}>{cat.icone || '📦'}</Text>
+                        <Text
                             style={[
-                                styles.categoryButton,
-                                selectedId === cat.id && styles.categoryButtonSelected,
-                                { width: `${100 / columns - 3}%` }
+                                styles.categoryName,
+                                selectedId === cat.id && styles.categoryNameSelected
                             ]}
-                            onPress={() => onSelect(cat.id)}
-                            activeOpacity={0.7}
+                            numberOfLines={1}
                         >
-                            <Text style={styles.categoryIcon}>{cat.icone || '📦'}</Text>
-                            <Text
-                                style={[
-                                    styles.categoryName,
-                                    selectedId === cat.id && styles.categoryNameSelected
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {cat.nome}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                            {cat.nome}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
 
-                    {/* Botão Adicionar */}
-                    {showAddButton && (
-                        <TouchableOpacity
-                            style={[styles.categoryButton, styles.addButton, { width: `${100 / columns - 3}%` }]}
-                            onPress={onAddPress}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.addIcon}>➕</Text>
-                            <Text style={styles.addText}>Nova</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </ScrollView>
+                {/* Botão Adicionar */}
+                {showAddButton && (
+                    <TouchableOpacity
+                        style={[
+                            styles.categoryButton,
+                            styles.addButton,
+                            { width: buttonSize, height: buttonSize }
+                        ]}
+                        onPress={onAddPress}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.addIcon}>➕</Text>
+                        <Text style={styles.addText}>Nova</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        maxHeight: 250,
-    },
-    gridContainer: {
-        paddingBottom: SIZES.sm,
+        marginTop: SIZES.sm,
     },
     grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'flex-start',
-        gap: SIZES.sm,
+        gap: 8,
     },
     categoryButton: {
-        aspectRatio: 1,
         backgroundColor: COLORS.surface,
-        borderRadius: SIZES.radius,
+        borderRadius: SIZES.radiusMd,
         borderWidth: 1,
         borderColor: COLORS.border,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: SIZES.sm,
+        padding: 4,
     },
     categoryButtonSelected: {
-        backgroundColor: `${COLORS.primary}20`,
+        backgroundColor: `${COLORS.primary}25`,
         borderColor: COLORS.primary,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        elevation: 5,
+        borderWidth: 2,
     },
     categoryIcon: {
-        fontSize: 28,
-        marginBottom: 4,
+        fontSize: 26,
+        marginBottom: 2,
     },
     categoryName: {
-        fontSize: 10,
+        fontSize: 9,
         color: COLORS.textSecondary,
         textAlign: 'center',
     },
     categoryNameSelected: {
         color: COLORS.primary,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     addButton: {
         borderStyle: 'dashed',
         borderColor: COLORS.textMuted,
+        backgroundColor: 'transparent',
     },
     addIcon: {
-        fontSize: 24,
-        marginBottom: 4,
+        fontSize: 22,
+        marginBottom: 2,
     },
     addText: {
-        fontSize: 10,
+        fontSize: 9,
         color: COLORS.textMuted,
     },
 });
