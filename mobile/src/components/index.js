@@ -13,5 +13,10 @@ export { default as TransactionItem } from './TransactionItem';
 // Buttons
 export { default as GradientButton } from './GradientButton';
 
+// Modals & Forms
+export { default as GlassModal } from './GlassModal';
+export { default as DarkInput } from './DarkInput';
+export { default as CategoryGrid } from './CategoryGrid';
+
 // Loading
 export { default as SkeletonCard, SkeletonList } from './SkeletonCard';
