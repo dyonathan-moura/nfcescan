@@ -160,8 +160,13 @@ async def scan_from_url(
     
     # Fazer scraping da NFC-e
     try:
+        print(f"[SCAN/URL] Iniciando scraping de: {url[:80]}...")
         data = scraper.scrape_nfce(url, "RS")
+        print(f"[SCAN/URL] Resultado: {data}")
     except Exception as e:
+        import traceback
+        print(f"[SCAN/URL] ERRO: {str(e)}")
+        print(f"[SCAN/URL] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail={"error": "fetch_failed", "message": f"Erro ao acessar NFC-e: {str(e)}"}
