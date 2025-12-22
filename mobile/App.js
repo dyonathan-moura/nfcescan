@@ -23,7 +23,7 @@ import { useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_700Bold, Archi
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Design System
-import { COLORS, FONTS, SIZES, SHADOWS } from './src/constants/theme';
+import { COLORS, FONTS, SIZES, SHADOWS } from './theme';
 
 // ============================================================================
 // CONFIGURAÇÃO - API em produção no Render
@@ -95,19 +95,6 @@ export default function App() {
   const [dashboardFiltro, setDashboardFiltro] = useState('mes');
 
   const cameraRef = useRef(null);
-
-  // Tela de carregamento enquanto fontes carregam
-  if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontWeight: '500' }}>
-          Carregando...
-        </Text>
-      </View>
-    );
-  }
 
   // Buscar notas do servidor
   const fetchNotas = useCallback(async (searchTerm = '', filtro = 'todos') => {
@@ -230,6 +217,19 @@ export default function App() {
       fetchDashboard(dashboardFiltro);
     }
   }, [showDashboard, dashboardFiltro]);
+
+  // Tela de carregamento enquanto fontes carregam
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontWeight: '500' }}>
+          Carregando...
+        </Text>
+      </View>
+    );
+  }
 
   // Verificar permissão
   if (!permission) {
