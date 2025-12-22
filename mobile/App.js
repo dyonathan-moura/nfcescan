@@ -510,35 +510,40 @@ export default function App() {
     </TouchableOpacity>
   );
 
-  // ===== TELA DE DASHBOARD =====
+  // ===== TELA DE DASHBOARD (PREMIUM) =====
   if (showDashboard) {
     const screenWidth = Dimensions.get('window').width;
 
-    // Preparar dados para gráfico de pizza
-    const chartData = dashboardData?.categorias?.map(cat => ({
+    // Preparar dados para gráfico de pizza com cores neon
+    const neonColors = [COLORS.primary, COLORS.secondary, COLORS.success, COLORS.warning, COLORS.danger, '#9b59b6', '#1abc9c'];
+    const chartData = dashboardData?.categorias?.map((cat, index) => ({
       name: cat.nome,
       population: cat.total,
-      color: cat.cor,
-      legendFontColor: '#333',
-      legendFontSize: 12,
+      color: neonColors[index % neonColors.length],
+      legendFontColor: COLORS.textSecondary,
+      legendFontSize: 11,
     })) || [];
 
     return (
-      <SafeAreaView style={styles.historicoContainer}>
-        <StatusBar barStyle="dark-content" />
+      <SafeAreaView style={styles.dashboardContainer}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header */}
-        <View style={styles.historicoHeader}>
-          <TouchableOpacity onPress={() => setShowDashboard(false)}>
-            <Text style={styles.backButton}>← Voltar</Text>
+        {/* Header Premium */}
+        <View style={styles.dashboardHeaderPremium}>
+          <TouchableOpacity onPress={() => setShowDashboard(false)} style={styles.backButtonContainer}>
+            <Text style={styles.backButtonIcon}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.historicoTitle}>📊 Relatórios</Text>
-          <View style={{ width: 60 }} />
+          <Text style={styles.dashboardTitleLarge}>Relatórios</Text>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 15 }}>
-          {/* Filtros de Período */}
-          <View style={styles.dashboardFilterRow}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: SIZES.padding, paddingBottom: SIZES.xl }}>
+          {/* Filtros de Período (Chips) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dashboardFilterScroll}
+            contentContainerStyle={{ gap: SIZES.sm }}
+          >
             {[
               { id: 'mes', label: 'Este Mês' },
               { id: 'mesPassado', label: 'Mês Passado' },
@@ -547,37 +552,58 @@ export default function App() {
             ].map(f => (
               <TouchableOpacity
                 key={f.id}
-                style={[styles.dashboardFilterBtn, dashboardFiltro === f.id && styles.dashboardFilterActive]}
+                style={[styles.dashboardChip, dashboardFiltro === f.id && styles.dashboardChipActive]}
                 onPress={() => setDashboardFiltro(f.id)}
               >
-                <Text style={[styles.dashboardFilterText, dashboardFiltro === f.id && styles.dashboardFilterTextActive]}>
+                <Text style={[styles.dashboardChipText, dashboardFiltro === f.id && styles.dashboardChipTextActive]}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
 
           {loadingDashboard ? (
-            <ActivityIndicator size="large" color="#4a90d9" style={{ marginTop: 50 }} />
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : dashboardData ? (
             <>
-              {/* Card Total */}
-              <View style={styles.dashboardTotalCard}>
-                <Text style={styles.dashboardTotalLabel}>Total no Período</Text>
-                <Text style={styles.dashboardTotalValue}>
-                  R$ {dashboardData.total_periodo?.toFixed(2)}
-                </Text>
+              {/* Cards de Resumo (KPIs) */}
+              <View style={styles.kpiRow}>
+                <View style={styles.kpiCardMain}>
+                  <Text style={styles.kpiLabel}>Total no Período</Text>
+                  <Text style={styles.kpiValueLarge}>
+                    R$ {dashboardData.total_periodo?.toFixed(2) || '0,00'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.kpiRowSmall}>
+                <View style={styles.kpiCardSmall}>
+                  <Text style={styles.kpiIconSmall}>📅</Text>
+                  <Text style={styles.kpiLabelSmall}>Média/Dia</Text>
+                  <Text style={styles.kpiValueSmall}>
+                    R$ {(dashboardData.total_periodo / 30)?.toFixed(2) || '0'}
+                  </Text>
+                </View>
+                <View style={styles.kpiCardSmall}>
+                  <Text style={styles.kpiIconSmall}>🛒</Text>
+                  <Text style={styles.kpiLabelSmall}>Total Notas</Text>
+                  <Text style={styles.kpiValueSmall}>
+                    {dashboardData.categorias?.reduce((acc, c) => acc + 1, 0) || 0}
+                  </Text>
+                </View>
               </View>
 
               {/* Gráfico de Pizza */}
-              {chartData.length > 0 ? (
-                <View style={styles.chartContainer}>
+              {chartData.length > 0 && (
+                <View style={styles.chartContainerPremium}>
+                  <Text style={styles.sectionTitle}>Distribuição por Categoria</Text>
                   <PieChart
                     data={chartData}
-                    width={screenWidth - 30}
-                    height={220}
+                    width={screenWidth - (SIZES.padding * 2)}
+                    height={200}
                     chartConfig={{
-                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
                     }}
                     accessor="population"
                     backgroundColor="transparent"
@@ -585,25 +611,37 @@ export default function App() {
                     absolute
                   />
                 </View>
-              ) : (
-                <Text style={styles.emptyText}>Nenhum gasto no período</Text>
               )}
 
-              {/* Legenda das Categorias */}
-              <Text style={styles.dashboardSectionTitle}>Detalhamento</Text>
-              {dashboardData.categorias?.map(cat => (
-                <View key={cat.id} style={styles.dashboardCategoryRow}>
-                  <Text style={styles.dashboardCategoryIcon}>{cat.icone}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dashboardCategoryName}>{cat.nome}</Text>
-                    <View style={[styles.dashboardBar, { width: `${cat.porcentagem}%`, backgroundColor: cat.cor }]} />
+              {/* Detalhamento por Categoria */}
+              <Text style={styles.sectionTitle}>Detalhamento</Text>
+              <View style={styles.categoriesContainer}>
+                {dashboardData.categorias?.map((cat, index) => (
+                  <View key={cat.id} style={styles.categoryRowPremium}>
+                    <View style={[styles.categoryIconCircle, { backgroundColor: `${neonColors[index % neonColors.length]}20` }]}>
+                      <Text style={styles.categoryIcon}>{cat.icone}</Text>
+                    </View>
+                    <View style={styles.categoryInfo}>
+                      <View style={styles.categoryNameRow}>
+                        <Text style={styles.categoryName}>{cat.nome}</Text>
+                        <Text style={styles.categoryPercent}>{cat.porcentagem}%</Text>
+                      </View>
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            {
+                              width: `${Math.min(cat.porcentagem, 100)}%`,
+                              backgroundColor: neonColors[index % neonColors.length]
+                            }
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.categoryTotal}>R$ {cat.total.toFixed(2)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.dashboardCategoryValues}>
-                    <Text style={styles.dashboardCategoryTotal}>R$ {cat.total.toFixed(2)}</Text>
-                    <Text style={styles.dashboardCategoryPercent}>{cat.porcentagem}%</Text>
-                  </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </>
           ) : (
             <Text style={styles.emptyText}>Erro ao carregar dados</Text>
@@ -1234,7 +1272,45 @@ const styles = StyleSheet.create({
   navButtonDashboard: { backgroundColor: 'rgba(74,144,217,0.9)' },
   navButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
 
-  // Dashboard
+  // Dashboard Premium
+  dashboardContainer: { flex: 1, backgroundColor: COLORS.background },
+  dashboardHeaderPremium: { paddingHorizontal: SIZES.padding, paddingTop: SIZES.lg, paddingBottom: SIZES.md },
+  dashboardTitleLarge: { fontSize: 32, fontWeight: '900', color: COLORS.textPrimary },
+  dashboardFilterScroll: { marginBottom: SIZES.md },
+  dashboardChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: SIZES.radiusFull, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.border },
+  dashboardChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  dashboardChipText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  dashboardChipTextActive: { color: COLORS.white, fontWeight: '700' },
+
+  // KPI Cards
+  kpiRow: { marginBottom: SIZES.md },
+  kpiCardMain: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: SIZES.lg, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  kpiLabel: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SIZES.xs },
+  kpiValueLarge: { fontSize: 36, fontWeight: '900', color: COLORS.primary },
+  kpiRowSmall: { flexDirection: 'row', gap: SIZES.md, marginBottom: SIZES.lg },
+  kpiCardSmall: { flex: 1, backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: SIZES.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  kpiIconSmall: { fontSize: 24, marginBottom: SIZES.xs },
+  kpiLabelSmall: { fontSize: 12, color: COLORS.textMuted, marginBottom: 2 },
+  kpiValueSmall: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+
+  // Chart
+  chartContainerPremium: { marginBottom: SIZES.lg },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SIZES.md },
+
+  // Category Progress Bars
+  categoriesContainer: { gap: SIZES.sm },
+  categoryRowPremium: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, padding: SIZES.md, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border },
+  categoryIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: SIZES.md },
+  categoryIcon: { fontSize: 22 },
+  categoryInfo: { flex: 1 },
+  categoryNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  categoryName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  categoryPercent: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  progressBarTrack: { height: 8, backgroundColor: COLORS.background, borderRadius: 4, overflow: 'hidden', marginBottom: 4 },
+  progressBarFill: { height: '100%', borderRadius: 4 },
+  categoryTotal: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+
+  // Dashboard Legacy
   dashboardFilterRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   dashboardFilterBtn: { paddingVertical: 8, paddingHorizontal: 16, marginHorizontal: 5, borderRadius: 20, backgroundColor: '#e0e0e0' },
   dashboardFilterActive: { backgroundColor: '#4a90d9' },
