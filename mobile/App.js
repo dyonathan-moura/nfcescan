@@ -21,9 +21,11 @@ import axios from 'axios';
 import { PieChart } from 'react-native-chart-kit';
 import { useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_700Bold, Archivo_900Black } from '@expo-google-fonts/archivo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 // Design System
 import { COLORS, FONTS, SIZES, SHADOWS } from './theme';
+import GradientButton from './src/components/GradientButton';
 
 // ============================================================================
 // CONFIGURAÇÃO - API em produção no Render
@@ -891,96 +893,116 @@ export default function App() {
     );
   }
 
-  // ===== TELA DA CÂMERA =====
+  // ===== TELA DA CÂMERA (PREMIUM) =====
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-      <CameraView
-        style={styles.camera}
-        facing={facing}
-        enableTorch={flashEnabled}
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-      >
-        {/* Overlay com Mira */}
-        <View style={styles.overlay}>
-          <View style={styles.overlayDark} />
-          <View style={styles.overlayMiddle}>
+      {/* ===== ÁREA DA CÂMERA (Superior - 70%) ===== */}
+      <View style={styles.cameraContainer}>
+        <CameraView
+          style={styles.camera}
+          facing={facing}
+          enableTorch={flashEnabled}
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+        >
+          {/* Overlay com Mira */}
+          <View style={styles.overlay}>
             <View style={styles.overlayDark} />
-            <View style={styles.scanArea}>
-              <View style={[styles.corner, styles.cornerTL]} />
-              <View style={[styles.corner, styles.cornerTR]} />
-              <View style={[styles.corner, styles.cornerBL]} />
-              <View style={[styles.corner, styles.cornerBR]} />
+            <View style={styles.overlayMiddle}>
+              <View style={styles.overlayDark} />
+              <View style={styles.scanArea}>
+                <View style={[styles.corner, styles.cornerTL]} />
+                <View style={[styles.corner, styles.cornerTR]} />
+                <View style={[styles.corner, styles.cornerBL]} />
+                <View style={[styles.corner, styles.cornerBR]} />
+              </View>
+              <View style={styles.overlayDark} />
+            </View>
+
+            {/* Instrução */}
+            <View style={styles.instructionContainer}>
+              <Text style={styles.instructionText}>📱 Aponte para o QR Code</Text>
             </View>
             <View style={styles.overlayDark} />
           </View>
-          <View style={styles.instructionContainer}>
-            <Text style={styles.instructionText}>📱 Enquadre o QR Code</Text>
-          </View>
-          <View style={styles.overlayDark} />
-        </View>
 
-        {/* Loading */}
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.loadingText}>Processando...</Text>
-          </View>
-        )}
-
-        {/* Erro */}
-        {errorVisible && (
-          <View style={styles.errorOverlay}>
-            <View style={styles.errorCard}>
-              <Text style={styles.errorIcon}>⚠️</Text>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-              <TouchableOpacity style={styles.errorButton} onPress={() => setErrorVisible(false)}>
-                <Text style={styles.errorButtonText}>Tentar Novamente</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Controles */}
-        <View style={styles.controlsContainer}>
+          {/* Botão Flash Flutuante (Glass) */}
           <TouchableOpacity
-            style={[styles.controlButton, flashEnabled && styles.controlButtonActive]}
+            style={[styles.floatingButton, styles.floatingButtonLeft]}
             onPress={toggleFlash}
           >
-            <Text style={styles.controlButtonText}>{flashEnabled ? '🔦' : '💡'}</Text>
+            <BlurView intensity={30} tint="dark" style={styles.floatingButtonInner}>
+              <Text style={styles.floatingButtonText}>{flashEnabled ? '🔦' : '💡'}</Text>
+            </BlurView>
           </TouchableOpacity>
 
-          {/* Indicador de Status (não é mais botão) */}
-          <View style={[styles.scanIndicator, scanned && styles.scanIndicatorActive]}>
-            <Text style={styles.scanIndicatorText}>
-              {isLoading ? '⏳' : scanned ? '✅' : '📷'}
-            </Text>
+          {/* Botão Câmera Flutuante (Glass) */}
+          <TouchableOpacity
+            style={[styles.floatingButton, styles.floatingButtonRight]}
+            onPress={toggleCameraFacing}
+          >
+            <BlurView intensity={30} tint="dark" style={styles.floatingButtonInner}>
+              <Text style={styles.floatingButtonText}>🔄</Text>
+            </BlurView>
+          </TouchableOpacity>
+
+          {/* Indicador de Status Central */}
+          <View style={styles.statusIndicator}>
+            <View style={[styles.statusDot, scanned && styles.statusDotActive, isLoading && styles.statusDotLoading]} />
           </View>
 
-          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-            <Text style={styles.controlButtonText}>🔄</Text>
-          </TouchableOpacity>
+          {/* Loading Overlay */}
+          {isLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Processando...</Text>
+            </View>
+          )}
+
+          {/* Erro Overlay */}
+          {errorVisible && (
+            <View style={styles.errorOverlay}>
+              <View style={styles.errorCard}>
+                <Text style={styles.errorIcon}>⚠️</Text>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+                <TouchableOpacity style={styles.errorButton} onPress={() => setErrorVisible(false)}>
+                  <Text style={styles.errorButtonText}>Tentar Novamente</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </CameraView>
+      </View>
+
+      {/* ===== PAINEL DE CONTROLE (Inferior - 30%) ===== */}
+      <View style={styles.controlPanel}>
+        {/* Resumo Rápido */}
+        <View style={styles.summarySection}>
+          <Text style={styles.summaryLabel}>Gastos do Mês</Text>
+          <Text style={styles.summaryValue}>
+            R$ {dashboardData?.total_periodo?.toFixed(2) || '0,00'}
+          </Text>
         </View>
 
         {/* Botões de Navegação */}
-        <View style={styles.navButtonsRow}>
-          <TouchableOpacity
-            style={styles.navButton}
+        <View style={styles.actionButtonsRow}>
+          <GradientButton
+            title="Histórico"
+            icon="📋"
             onPress={() => setShowHistorico(true)}
-          >
-            <Text style={styles.navButtonText}>📋 Histórico</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.navButton, styles.navButtonDashboard]}
+            style={styles.actionButton}
+            colors={COLORS.secondaryGradient}
+          />
+          <GradientButton
+            title="Relatórios"
+            icon="📊"
             onPress={() => setShowDashboard(true)}
-          >
-            <Text style={styles.navButtonText}>📊 Relatórios</Text>
-          </TouchableOpacity>
+            style={styles.actionButton}
+          />
         </View>
-      </CameraView>
+      </View>
 
       {/* Modal de Resultado */}
       <Modal animationType="slide" visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
@@ -1029,19 +1051,53 @@ const styles = StyleSheet.create({
   permissionButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: SIZES.radiusLg },
   permissionButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
 
-  // Câmera
+  // Câmera Premium
+  cameraContainer: {
+    flex: 0.7,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    overflow: 'hidden',
+    marginHorizontal: 0,
+  },
   camera: { flex: 1 },
   overlay: { ...StyleSheet.absoluteFillObject },
-  overlayDark: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  overlayDark: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   overlayMiddle: { flexDirection: 'row', height: SCAN_AREA_SIZE },
   scanArea: { width: SCAN_AREA_SIZE, height: SCAN_AREA_SIZE, backgroundColor: 'transparent' },
-  corner: { position: 'absolute', width: 30, height: 30, borderColor: COLORS.success, borderWidth: 4 },
+  corner: { position: 'absolute', width: 35, height: 35, borderColor: COLORS.secondary, borderWidth: 4 },
   cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
   cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
   cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
   cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  instructionContainer: { backgroundColor: COLORS.surfaceGlass, paddingVertical: 15, alignItems: 'center' },
-  instructionText: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '500' },
+  instructionContainer: { backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 12, alignItems: 'center' },
+  instructionText: { color: COLORS.white, fontSize: 15, fontWeight: '500', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+
+  // Botões Flutuantes (Glass)
+  floatingButton: { position: 'absolute', top: 50, width: 50, height: 50, borderRadius: 25, overflow: 'hidden' },
+  floatingButtonLeft: { left: 20 },
+  floatingButtonRight: { right: 20 },
+  floatingButtonInner: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)' },
+  floatingButtonText: { fontSize: 22 },
+
+  // Indicador de Status
+  statusIndicator: { position: 'absolute', bottom: 30, alignSelf: 'center' },
+  statusDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.textMuted },
+  statusDotActive: { backgroundColor: COLORS.success },
+  statusDotLoading: { backgroundColor: COLORS.warning },
+
+  // Painel de Controle (Inferior)
+  controlPanel: {
+    flex: 0.3,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.lg,
+    paddingBottom: SIZES.xl,
+  },
+  summarySection: { alignItems: 'center', marginBottom: SIZES.lg },
+  summaryLabel: { color: COLORS.textSecondary, fontSize: SIZES.fontSm, fontWeight: '500', marginBottom: 4 },
+  summaryValue: { color: COLORS.textPrimary, fontSize: 32, fontWeight: '900' },
+  actionButtonsRow: { flexDirection: 'row', gap: SIZES.md },
+  actionButton: { flex: 1 },
 
   // Loading/Erro
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,12,21,0.9)', justifyContent: 'center', alignItems: 'center' },
