@@ -26,7 +26,7 @@ import { BlurView } from 'expo-blur';
 // Design System
 import { COLORS, FONTS, SIZES, SHADOWS } from './theme';
 import GradientButton from './src/components/GradientButton';
-import { GlassModal, CategoryGrid, SkeletonList, DarkInput } from './src/components';
+import { GlassModal, CategoryGrid, SkeletonList, DarkInput, EmptyState, GlassLoader } from './src/components';
 
 // Utilities
 import { formatCurrency, formatDateShort, formatDateFull } from './src/utils/formatters';
@@ -725,7 +725,7 @@ export default function App() {
 
         {/* Lista Híbrida: Produtos OU Notas */}
         {loadingNotas ? (
-          <ActivityIndicator size="large" color="#4a90d9" style={{ marginTop: 50 }} />
+          <SkeletonList count={5} />
         ) : modoBusca ? (
           // MODO BUSCA: Lista de Produtos
           <FlatList
@@ -733,12 +733,16 @@ export default function App() {
             renderItem={renderProdutoItem}
             keyExtractor={(item, index) => `produto-${item.item_id}-${index}`}
             style={styles.notasList}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
             }
             ListEmptyComponent={
-              <Text style={styles.emptyText}>Nenhum produto encontrado</Text>
+              <EmptyState
+                icon="🔍"
+                title="Nenhum produto encontrado"
+                message={`Não encontramos produtos com "${busca}"`}
+              />
             }
           />
         ) : (
@@ -748,12 +752,18 @@ export default function App() {
             renderItem={renderNotaItem}
             keyExtractor={(item, index) => `nota-${index}`}
             style={styles.notasList}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
             }
             ListEmptyComponent={
-              <Text style={styles.emptyText}>Nenhuma nota salva ainda</Text>
+              <EmptyState
+                icon="📭"
+                title="Nenhuma nota ainda"
+                message="Escaneie sua primeira nota fiscal para ver o histórico aqui."
+                buttonTitle="Escanear Agora"
+                onButtonPress={() => setShowHistorico(false)}
+              />
             }
           />
         )}
