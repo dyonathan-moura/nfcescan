@@ -21,7 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-import decoder, scraper, models
+import scraper, models
+# decoder removido - agora usamos scanner nativo no celular
 from database import (
     create_tables,
     get_db,
@@ -103,148 +104,33 @@ async def health_check():
 
 
 @app.post("/scan")
-async def scan_nfce(
-    image: UploadFile = File(..., description="Imagem do QR Code (jpg, png)"),
-    estado: str = Query(
-        default="GENERICO",
-        description="Sigla do estado para seletores CSS (RS, SP, RJ, GENERICO)"
-    ),
-    db: Session = Depends(get_db)
-):
+async def scan_nfce_deprecated():
     """
-    Processa uma imagem de QR Code e retorna os dados da NFC-e.
+    ENDPOINT DESABILITADO - Use /scan/url ao invés.
     
-    **Fluxo Otimizado:**
-    1. Decodifica QR Code → URL
-    2. Verifica se URL já existe no banco (cache)
-    3. Se existe: retorna do banco (rápido, cached=true)
-    4. Se não existe: faz scraping, salva no banco, retorna
-    
-    **Retornos:**
-    - 200: Dados da NFC-e (com flag "cached" se veio do banco)
-    - 400: QR Code não encontrado na imagem
-    - 500: Erro ao acessar a página da NFC-e
+    O mobile agora usa scanner nativo e envia apenas a URL.
     """
-    temp_path = None
-    
-    try:
-        # Validar tipo de arquivo
-        content_type = image.content_type or ""
-        if not content_type.startswith("image/"):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "invalid_file_type",
-                    "message": f"Tipo de arquivo inválido: {content_type}"
-                }
-            )
-        
-        # Salvar imagem temporariamente
-        file_extension = _get_extension(image.filename or "image.jpg")
-        temp_filename = f"{uuid.uuid4()}{file_extension}"
-        temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
-        
-        with open(temp_path, "wb") as f:
-            content = await image.read()
-            f.write(content)
-        
-        # ===== PASSO 1: Decodificar QR Code =====
-        try:
-            url = decoder.decode_qr_from_image(temp_path)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "decode_error", "message": str(e)}
-            )
-        
-        if url is None:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "qr_not_found",
-                    "message": "Nenhum QR Code encontrado na imagem."
-                }
-            )
-        
-        # ===== PASSO 2: Verificar duplicidade (ANTES do scraping!) =====
-        existing_nota = get_nota_by_url(db, url)
-        
-        if existing_nota:
-            # ===== CAMINHO RÁPIDO: Retornar do cache =====
-            return JSONResponse(
-                status_code=200,
-                content=existing_nota.to_dict(include_cached=True)
-            )
-        
-        # ===== PASSO 3: Fazer scraping (nota nova) =====
-        data = scraper.scrape_nfce(url, estado.upper())
-        
-        if data is None:
-            raise HTTPException(
-                status_code=500,
-                detail={
-                    "error": "scrape_failed",
-                    "message": "Falha ao acessar a página da nota fiscal."
-                }
-            )
-        
-        # ===== PASSO 4: Salvar no banco =====
-        nova_nota = create_nota(
-            db=db,
-            url=url,
-            estabelecimento=data.get("estabelecimento", "Não identificado"),
-            total=float(data.get("total", 0.0)),
-            itens=data.get("itens", []),
-            data_emissao=data.get("data_emissao"),
-            endereco=data.get("endereco")
-        )
-        
-        return JSONResponse(
-            status_code=200,
-            content=nova_nota.to_dict(include_cached=False)
-        )
-    
-    finally:
-        # Limpar arquivo temporário
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "endpoint_deprecated",
+            "message": "Este endpoint foi desabilitado. Use POST /scan/url?url=<URL> ao invés.",
+            "alternative": "/scan/url"
+        }
+    )
 
 
 @app.post("/decode")
-async def decode_only(
-    image: UploadFile = File(..., description="Imagem do QR Code (jpg, png)")
-):
-    """Apenas decodifica o QR Code e retorna a URL."""
-    temp_path = None
-    
-    try:
-        file_extension = _get_extension(image.filename or "image.jpg")
-        temp_filename = f"{uuid.uuid4()}{file_extension}"
-        temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
-        
-        with open(temp_path, "wb") as f:
-            content = await image.read()
-            f.write(content)
-        
-        url = decoder.decode_qr_from_image(temp_path)
-        
-        if url is None:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "qr_not_found", "message": "QR Code não encontrado."}
-            )
-        
-        return {"url": url}
-    
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
+async def decode_only_deprecated():
+    """ENDPOINT DESABILITADO - O mobile agora usa scanner nativo."""
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "endpoint_deprecated",
+            "message": "Este endpoint foi desabilitado. O mobile agora usa scanner nativo.",
+            "alternative": "/scan/url"
+        }
+    )
 
 
 @app.post("/scan/url")
