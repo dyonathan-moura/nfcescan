@@ -21,9 +21,9 @@ import axios from 'axios';
 import { PieChart } from 'react-native-chart-kit';
 
 // ============================================================================
-// CONFIGURAÇÃO - SUBSTITUA PELO SEU IP LOCAL
+// CONFIGURAÇÃO - API em produção no Render
 // ============================================================================
-const API_URL = 'http://192.168.0.7:8000';
+const API_URL = 'https://nfcescan-api.onrender.com';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.7;
