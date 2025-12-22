@@ -21,8 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from . import decoder, scraper, models
-from .database import (
+import decoder, scraper, models
+from database import (
     create_tables,
     get_db,
     get_nota_by_url,
@@ -66,7 +66,7 @@ app.add_middleware(
 def startup():
     create_tables()
     # Seed categorias padrão
-    from .database import SessionLocal
+    from database import SessionLocal
     db = SessionLocal()
     try:
         seed_default_categorias(db)
@@ -324,7 +324,7 @@ async def listar_notas(
     """
     from sqlalchemy import or_, and_
     from datetime import datetime
-    from .database import ItemDB
+    from database import ItemDB
     
     # Query base
     query = db.query(NotaFiscalDB)
@@ -406,7 +406,7 @@ async def buscar_itens(
     Retorna dados planos (flat) com preço, estabelecimento e data
     para facilitar comparação de preços.
     """
-    from .database import ItemDB
+    from database import ItemDB
     
     # JOIN Item + NotaFiscal
     results = db.query(
