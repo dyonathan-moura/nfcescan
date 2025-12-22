@@ -26,6 +26,10 @@ import { BlurView } from 'expo-blur';
 // Design System
 import { COLORS, FONTS, SIZES, SHADOWS } from './theme';
 import GradientButton from './src/components/GradientButton';
+import { GlassModal, CategoryGrid, SkeletonList, DarkInput } from './src/components';
+
+// Utilities
+import { formatCurrency, formatDateShort, formatDateFull } from './src/utils/formatters';
 
 // ============================================================================
 // CONFIGURAÇÃO - API em produção no Render
@@ -800,97 +804,68 @@ export default function App() {
           </SafeAreaView>
         </Modal>
 
-        {/* Modal de Seleção de Categoria */}
-        <Modal
-          animationType="fade"
-          transparent={true}
+        {/* Modal de Seleção de Categoria (Premium) */}
+        <GlassModal
           visible={showCategoryModal}
-          onRequestClose={() => { setShowCategoryModal(false); setCreateCategoryMode(false); }}
+          onClose={() => { setShowCategoryModal(false); setCreateCategoryMode(false); }}
+          title={createCategoryMode ? "➕ Nova Categoria" : "🏷️ Escolha a Categoria"}
         >
-          <View style={styles.renameModalOverlay}>
-            <View style={[styles.renameModalContent, { maxHeight: '70%' }]}>
+          {createCategoryMode ? (
+            // ====== MODO CRIAR CATEGORIA ======
+            <>
+              <Text style={styles.modalSubtitleSmall}>
+                Use o teclado de emojis do seu celular
+              </Text>
 
-              {createCategoryMode ? (
-                // ====== MODO CRIAR CATEGORIA ======
-                <>
-                  <Text style={styles.renameModalTitle}>➕ Nova Categoria</Text>
-                  <Text style={styles.renameModalSubtitle}>
-                    Use o teclado de emojis do seu celular
-                  </Text>
+              <DarkInput
+                label="Nome da categoria"
+                placeholder="Ex: Pets, Lazer, Saúde..."
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                icon="📝"
+              />
 
-                  <TextInput
-                    style={styles.renameInput}
-                    placeholder="Nome (ex: Pets)"
-                    value={newCategoryName}
-                    onChangeText={setNewCategoryName}
-                  />
+              <DarkInput
+                label="Emoji"
+                placeholder="🐕"
+                value={newCategoryIcon}
+                onChangeText={setNewCategoryIcon}
+                maxLength={4}
+                inputStyle={{ fontSize: 24, textAlign: 'center' }}
+              />
 
-                  <TextInput
-                    style={[styles.renameInput, { fontSize: 24, textAlign: 'center' }]}
-                    placeholder="Emoji (ex: 🐕)"
-                    value={newCategoryIcon}
-                    onChangeText={setNewCategoryIcon}
-                    maxLength={4}
-                  />
+              <View style={styles.modalButtonsRow}>
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={() => setCreateCategoryMode(false)}
+                >
+                  <Text style={styles.modalButtonSecondaryText}>← Voltar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButtonPrimary}
+                  onPress={createNewCategory}
+                >
+                  <Text style={styles.modalButtonPrimaryText}>Criar</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            // ====== MODO LISTAR CATEGORIAS (Grid) ======
+            <>
+              <Text style={styles.modalSubtitleSmall} numberOfLines={2}>
+                Item: {selectedItemForCategory?.nome}
+              </Text>
 
-                  <View style={styles.renameButtons}>
-                    <TouchableOpacity
-                      style={styles.renameCancelButton}
-                      onPress={() => setCreateCategoryMode(false)}
-                    >
-                      <Text style={styles.renameCancelText}>← Voltar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.renameSaveButton}
-                      onPress={createNewCategory}
-                    >
-                      <Text style={styles.renameSaveText}>Criar e Usar</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                // ====== MODO LISTAR CATEGORIAS ======
-                <>
-                  <Text style={styles.renameModalTitle}>🏷️ Escolha a Categoria</Text>
-                  <Text style={styles.renameModalSubtitle}>
-                    {selectedItemForCategory?.nome}
-                  </Text>
-
-                  {/* Botão Criar Nova */}
-                  <TouchableOpacity
-                    style={styles.createCategoryButton}
-                    onPress={() => setCreateCategoryMode(true)}
-                  >
-                    <Text style={styles.createCategoryText}>➕ Nova Categoria</Text>
-                  </TouchableOpacity>
-
-                  <FlatList
-                    data={categorias}
-                    keyExtractor={(item) => `cat-${item.id}`}
-                    style={{ marginTop: 10 }}
-                    renderItem={({ item: cat }) => (
-                      <TouchableOpacity
-                        style={styles.categorySelectItem}
-                        onPress={() => updateItemCategory(cat.id)}
-                      >
-                        <Text style={styles.categoryIcon}>{cat.icone}</Text>
-                        <Text style={styles.categoryName}>{cat.nome}</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.cancelButtonStandalone}
-                    onPress={() => setShowCategoryModal(false)}
-                  >
-                    <Text style={styles.renameCancelText}>Cancelar</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-            </View>
-          </View>
-        </Modal>
+              <CategoryGrid
+                categories={categorias}
+                selectedId={selectedItemForCategory?.categoria?.id}
+                onSelect={(catId) => updateItemCategory(catId)}
+                onAddPress={() => setCreateCategoryMode(true)}
+                columns={4}
+              />
+            </>
+          )}
+        </GlassModal>
 
         {/* Modal de Renomear (funciona no Android) */}
         <Modal
@@ -1255,8 +1230,16 @@ const styles = StyleSheet.create({
   renameButtons: { flexDirection: 'row', justifyContent: 'space-between' },
   renameCancelButton: { flex: 1, padding: 12, marginRight: 8, borderRadius: SIZES.radiusSm, backgroundColor: COLORS.background, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: COLORS.border },
   renameCancelText: { color: COLORS.textSecondary, fontWeight: '600' },
-  renameSaveButton: { flex: 1, padding: 12, marginLeft: 8, borderRadius: 8, backgroundColor: '#4a90d9', alignItems: 'center' },
-  renameSaveText: { color: '#fff', fontWeight: '600' },
+  renameSaveButton: { flex: 1, padding: 12, marginLeft: 8, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', marginTop: 10 },
+  renameSaveText: { color: COLORS.white, fontWeight: '600' },
+
+  // Modal Premium (GlassModal)
+  modalSubtitleSmall: { fontSize: 13, color: COLORS.textSecondary, marginBottom: SIZES.md },
+  modalButtonsRow: { flexDirection: 'row', gap: SIZES.sm, marginTop: SIZES.sm },
+  modalButtonPrimary: { flex: 1, backgroundColor: COLORS.primary, padding: 14, borderRadius: SIZES.radiusSm, alignItems: 'center' },
+  modalButtonPrimaryText: { color: COLORS.white, fontWeight: '700', fontSize: 15 },
+  modalButtonSecondary: { flex: 1, backgroundColor: COLORS.surface, padding: 14, borderRadius: SIZES.radiusSm, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  modalButtonSecondaryText: { color: COLORS.textSecondary, fontWeight: '600', fontSize: 15 },
 
   // Modal de Seleção de Categoria
   categorySelectItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
