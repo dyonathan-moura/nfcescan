@@ -19,6 +19,11 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
 import { PieChart } from 'react-native-chart-kit';
+import { useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_700Bold, Archivo_900Black } from '@expo-google-fonts/archivo';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// Design System
+import { COLORS, FONTS, SIZES, SHADOWS } from './src/constants/theme';
 
 // ============================================================================
 // CONFIGURAÇÃO - API em produção no Render
@@ -40,6 +45,14 @@ const FILTROS_DATA = [
 const getCategoryIcon = (categoria) => categoria?.icone || '📦';
 
 export default function App() {
+  // Carregar fontes Archivo
+  const [fontsLoaded] = useFonts({
+    Archivo_400Regular,
+    Archivo_500Medium,
+    Archivo_700Bold,
+    Archivo_900Black,
+  });
+
   // Estados - Câmera
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
@@ -82,6 +95,19 @@ export default function App() {
   const [dashboardFiltro, setDashboardFiltro] = useState('mes');
 
   const cameraRef = useRef(null);
+
+  // Tela de carregamento enquanto fontes carregam
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontWeight: '500' }}>
+          Carregando...
+        </Text>
+      </View>
+    );
+  }
 
   // Buscar notas do servidor
   const fetchNotas = useCallback(async (searchTerm = '', filtro = 'todos') => {
@@ -993,15 +1019,15 @@ export default function App() {
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   // Permissão
-  permissionContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a2e', padding: 30 },
+  permissionContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 30 },
   permissionIcon: { fontSize: 60, marginBottom: 20 },
-  permissionTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  permissionText: { color: '#aaa', fontSize: 16, textAlign: 'center', marginBottom: 30 },
-  permissionButton: { backgroundColor: '#4a90d9', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 25 },
-  permissionButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  permissionTitle: { color: COLORS.textPrimary, fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  permissionText: { color: COLORS.textSecondary, fontSize: 16, textAlign: 'center', marginBottom: 30 },
+  permissionButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: SIZES.radiusLg },
+  permissionButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
 
   // Câmera
   camera: { flex: 1 },
@@ -1009,23 +1035,23 @@ const styles = StyleSheet.create({
   overlayDark: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   overlayMiddle: { flexDirection: 'row', height: SCAN_AREA_SIZE },
   scanArea: { width: SCAN_AREA_SIZE, height: SCAN_AREA_SIZE, backgroundColor: 'transparent' },
-  corner: { position: 'absolute', width: 30, height: 30, borderColor: '#4ade80', borderWidth: 4 },
+  corner: { position: 'absolute', width: 30, height: 30, borderColor: COLORS.success, borderWidth: 4 },
   cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
   cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
   cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
   cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  instructionContainer: { backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 15, alignItems: 'center' },
-  instructionText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  instructionContainer: { backgroundColor: COLORS.surfaceGlass, paddingVertical: 15, alignItems: 'center' },
+  instructionText: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '500' },
 
   // Loading/Erro
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#fff', fontSize: 18, marginTop: 15 },
-  errorOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 30 },
-  errorCard: { backgroundColor: '#fff', borderRadius: 20, padding: 25, alignItems: 'center', maxWidth: 300 },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,12,21,0.9)', justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: COLORS.textPrimary, fontSize: 18, marginTop: 15 },
+  errorOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,12,21,0.95)', justifyContent: 'center', alignItems: 'center', padding: 30 },
+  errorCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMd, padding: 25, alignItems: 'center', maxWidth: 300, borderWidth: 1, borderColor: COLORS.border },
   errorIcon: { fontSize: 50, marginBottom: 15 },
-  errorText: { color: '#333', fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-  errorButton: { backgroundColor: '#4a90d9', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 25 },
-  errorButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  errorText: { color: COLORS.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  errorButton: { backgroundColor: COLORS.primary, paddingHorizontal: 30, paddingVertical: 12, borderRadius: SIZES.radiusLg },
+  errorButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
 
   // Controles
   controlsContainer: { position: 'absolute', bottom: 40, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 30 },
@@ -1043,75 +1069,75 @@ const styles = StyleSheet.create({
   historicoButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 
   // Histórico
-  historicoContainer: { flex: 1, backgroundColor: '#f5f5f5' },
-  historicoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  historicoTitle: { fontSize: 18, fontWeight: 'bold' },
-  backButton: { fontSize: 16, color: '#4a90d9' },
+  historicoContainer: { flex: 1, backgroundColor: COLORS.background },
+  historicoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  historicoTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary },
+  backButton: { fontSize: 16, color: COLORS.secondary },
 
   // Busca
-  searchContainer: { padding: 15, backgroundColor: '#fff' },
-  searchInput: { backgroundColor: '#f0f0f0', borderRadius: 10, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16 },
+  searchContainer: { padding: 15, backgroundColor: COLORS.surface },
+  searchInput: { backgroundColor: COLORS.background, borderRadius: SIZES.radiusSm, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border },
 
   // Filtros
-  filtrosContainer: { backgroundColor: '#fff', maxHeight: 60 },
+  filtrosContainer: { backgroundColor: COLORS.surface, maxHeight: 60 },
   filtrosContent: { paddingHorizontal: 15, paddingVertical: 10, gap: 10 },
-  filtroChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 10 },
-  filtroChipAtivo: { backgroundColor: '#4a90d9' },
-  filtroText: { fontSize: 14, color: '#666' },
-  filtroTextAtivo: { color: '#fff', fontWeight: '600' },
-  filtroInfo: { paddingHorizontal: 15, paddingVertical: 8, fontSize: 13, color: '#666', backgroundColor: '#f9f9f9' },
+  filtroChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.background, marginRight: 10, borderWidth: 1, borderColor: COLORS.border },
+  filtroChipAtivo: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filtroText: { fontSize: 14, color: COLORS.textSecondary },
+  filtroTextAtivo: { color: COLORS.white, fontWeight: '600' },
+  filtroInfo: { paddingHorizontal: 15, paddingVertical: 8, fontSize: 13, color: COLORS.textSecondary, backgroundColor: COLORS.surface },
 
   // Lista de Notas
   notasList: { flex: 1, padding: 15 },
-  notaCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 10, elevation: 2 },
+  notaCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
   notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  notaEstabelecimento: { flex: 1, fontSize: 16, fontWeight: '600', color: '#333' },
-  notaTotal: { fontSize: 16, fontWeight: 'bold', color: '#4a90d9' },
-  notaData: { fontSize: 13, color: '#999', marginTop: 5 },
-  notaItens: { fontSize: 13, color: '#666', marginTop: 2 },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 50, fontSize: 16 },
+  notaEstabelecimento: { flex: 1, fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  notaTotal: { fontSize: 16, fontWeight: 'bold', color: COLORS.secondary },
+  notaData: { fontSize: 13, color: COLORS.textSecondary, marginTop: 5 },
+  notaItens: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+  emptyText: { textAlign: 'center', color: COLORS.textSecondary, marginTop: 50, fontSize: 16 },
 
   // Card de Produto (busca comparativa)
-  produtoCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 10, elevation: 2, flexDirection: 'row', alignItems: 'center' },
+  produtoCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   produtoIcon: { fontSize: 24, marginRight: 12 },
   produtoInfo: { flex: 1, marginRight: 10 },
-  produtoNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-  produtoMercado: { fontSize: 13, color: '#888', marginTop: 4 },
+  produtoNome: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  produtoMercado: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
   produtoPreco: { alignItems: 'flex-end' },
-  produtoValor: { fontSize: 18, fontWeight: 'bold', color: '#2e7d32' },
-  produtoData: { fontSize: 12, color: '#999', marginTop: 2 },
+  produtoValor: { fontSize: 18, fontWeight: 'bold', color: COLORS.success },
+  produtoData: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
 
   // Modal
-  modalContainer: { flex: 1, backgroundColor: '#f5f5f5' },
-  modalHeader: { backgroundColor: '#4a90d9', padding: 20, paddingTop: 30 },
+  modalContainer: { flex: 1, backgroundColor: COLORS.background },
+  modalHeader: { backgroundColor: COLORS.surface, padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1 },
+  modalTitle: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold', flex: 1 },
   editButton: { padding: 8 },
   editButtonText: { fontSize: 20 },
-  modalEndereco: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 6 },
-  modalSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 5 },
-  cachedBadge: { color: '#4ade80', fontSize: 12, marginTop: 5 },
+  modalEndereco: { color: COLORS.textSecondary, fontSize: 13, marginTop: 6 },
+  modalSubtitle: { color: COLORS.textMuted, fontSize: 14, marginTop: 5 },
+  cachedBadge: { color: COLORS.success, fontSize: 12, marginTop: 5 },
   itemsList: { flex: 1, padding: 10 },
-  itemRow: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, marginVertical: 4, borderRadius: 8, alignItems: 'center', elevation: 2 },
+  itemRow: { flexDirection: 'row', backgroundColor: COLORS.surface, padding: 12, marginVertical: 4, borderRadius: SIZES.radiusSm, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   itemIcon: { fontSize: 20, marginRight: 10 },
-  itemName: { flex: 1, fontSize: 14, color: '#333' },
-  itemQtd: { fontSize: 14, color: '#666', marginHorizontal: 10 },
-  itemValor: { fontSize: 14, fontWeight: 'bold', color: '#2e7d32' },
-  modalFooter: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 20, borderTopWidth: 1, borderTopColor: '#eee' },
-  totalLabel: { fontSize: 18, fontWeight: 'bold' },
-  totalValue: { fontSize: 24, fontWeight: 'bold', color: '#4a90d9' },
-  newScanButton: { backgroundColor: '#4a90d9', margin: 15, padding: 18, borderRadius: 10, alignItems: 'center' },
-  newScanButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  itemName: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
+  itemQtd: { fontSize: 14, color: COLORS.textSecondary, marginHorizontal: 10 },
+  itemValor: { fontSize: 14, fontWeight: 'bold', color: COLORS.success },
+  modalFooter: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.surface, padding: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
+  totalLabel: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary },
+  totalValue: { fontSize: 24, fontWeight: 'bold', color: COLORS.primary },
+  newScanButton: { backgroundColor: COLORS.primary, margin: 15, padding: 18, borderRadius: SIZES.radiusSm, alignItems: 'center' },
+  newScanButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
 
   // Modal de Renomear
-  renameModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  renameModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 350 },
-  renameModalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  renameModalSubtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 16 },
-  renameInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20 },
+  renameModalOverlay: { flex: 1, backgroundColor: 'rgba(11,12,21,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  renameModalContent: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 20, width: '100%', maxWidth: 350, borderWidth: 1, borderColor: COLORS.border },
+  renameModalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8, color: COLORS.textPrimary },
+  renameModalSubtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 16 },
+  renameInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: SIZES.radiusSm, padding: 12, fontSize: 16, marginBottom: 20, backgroundColor: COLORS.background, color: COLORS.textPrimary },
   renameButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  renameCancelButton: { flex: 1, padding: 12, marginRight: 8, borderRadius: 8, backgroundColor: '#f0f0f0', alignItems: 'center', marginTop: 10 },
-  renameCancelText: { color: '#666', fontWeight: '600' },
+  renameCancelButton: { flex: 1, padding: 12, marginRight: 8, borderRadius: SIZES.radiusSm, backgroundColor: COLORS.background, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: COLORS.border },
+  renameCancelText: { color: COLORS.textSecondary, fontWeight: '600' },
   renameSaveButton: { flex: 1, padding: 12, marginLeft: 8, borderRadius: 8, backgroundColor: '#4a90d9', alignItems: 'center' },
   renameSaveText: { color: '#fff', fontWeight: '600' },
 

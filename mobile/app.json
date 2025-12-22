@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "NFC-e Scanner",
-    "slug": "nfcescan",
+    "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,6 +37,9 @@
       "eas": {
         "projectId": "2a89339c-28cd-4e45-9b72-650af8fa6596"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
