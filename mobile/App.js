@@ -613,53 +613,55 @@ export default function App() {
     );
   }
 
-  // ===== TELA DE HISTÓRICO =====
+  // ===== TELA DE HISTÓRICO (PREMIUM) =====
   if (showHistorico) {
     return (
       <SafeAreaView style={styles.historicoContainer}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header */}
-        <View style={styles.historicoHeader}>
-          <TouchableOpacity onPress={() => setShowHistorico(false)}>
-            <Text style={styles.backButton}>← Voltar</Text>
+        {/* Header Premium */}
+        <View style={styles.historicoHeaderPremium}>
+          <TouchableOpacity onPress={() => setShowHistorico(false)} style={styles.backButtonContainer}>
+            <Text style={styles.backButtonIcon}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.historicoTitle}>Histórico</Text>
-          <View style={{ width: 60 }} />
+          <Text style={styles.historicoTitleLarge}>Histórico</Text>
         </View>
 
-        {/* Barra de Busca */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 Buscar mercado ou produto..."
-            placeholderTextColor="#999"
-            value={busca}
-            onChangeText={setBusca}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
+        {/* Barra de Busca Premium */}
+        <View style={styles.searchContainerPremium}>
+          <View style={styles.searchInputWrapper}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInputPremium}
+              placeholder="Buscar mercado ou produto..."
+              placeholderTextColor={COLORS.textMuted}
+              value={busca}
+              onChangeText={setBusca}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+          </View>
         </View>
 
-        {/* Filtros Rápidos */}
+        {/* Filtros Rápidos Premium */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.filtrosContainer}
-          contentContainerStyle={styles.filtrosContent}
+          style={styles.filtrosContainerPremium}
+          contentContainerStyle={styles.filtrosContentPremium}
         >
           {FILTROS_DATA.map((filtro) => (
             <TouchableOpacity
               key={filtro.id}
               style={[
-                styles.filtroChip,
-                filtroAtivo === filtro.id && styles.filtroChipAtivo
+                styles.filtroChipPremium,
+                filtroAtivo === filtro.id && styles.filtroChipAtivoPremium
               ]}
               onPress={() => handleFiltroChange(filtro.id)}
             >
               <Text style={[
-                styles.filtroText,
-                filtroAtivo === filtro.id && styles.filtroTextAtivo
+                styles.filtroTextPremium,
+                filtroAtivo === filtro.id && styles.filtroTextAtivoPremium
               ]}>
                 {filtro.label}
               </Text>
@@ -669,11 +671,11 @@ export default function App() {
 
         {/* Info do filtro/busca */}
         {modoBusca ? (
-          <Text style={styles.filtroInfo}>
+          <Text style={styles.filtroInfoPremium}>
             🔍 {produtos.length} produto(s) encontrado(s) para "{busca}"
           </Text>
         ) : (busca || filtroAtivo !== 'todos') && (
-          <Text style={styles.filtroInfo}>
+          <Text style={styles.filtroInfoPremium}>
             {notas.length} resultado(s)
             {filtroAtivo !== 'todos' ? ` • ${FILTROS_DATA.find(f => f.id === filtroAtivo)?.label}` : ''}
           </Text>
@@ -1032,7 +1034,7 @@ export default function App() {
           </TouchableOpacity>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1130,11 +1132,32 @@ const styles = StyleSheet.create({
   historicoTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary },
   backButton: { fontSize: 16, color: COLORS.secondary },
 
-  // Busca
+  // Histórico Premium
+  historicoHeaderPremium: { paddingHorizontal: SIZES.padding, paddingTop: SIZES.lg, paddingBottom: SIZES.md },
+  backButtonContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.surface, justifyContent: 'center', alignItems: 'center', marginBottom: SIZES.md },
+  backButtonIcon: { fontSize: 20, color: COLORS.textPrimary },
+  historicoTitleLarge: { fontSize: 32, fontWeight: '900', color: COLORS.textPrimary },
+
+  // Busca Premium
+  searchContainerPremium: { paddingHorizontal: SIZES.padding, marginBottom: SIZES.md },
+  searchInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: SIZES.radius, paddingHorizontal: SIZES.md, borderWidth: 1, borderColor: COLORS.border },
+  searchIcon: { fontSize: 18, marginRight: SIZES.sm },
+  searchInputPremium: { flex: 1, paddingVertical: 14, fontSize: 16, color: COLORS.textPrimary },
+
+  // Filtros Premium
+  filtrosContainerPremium: { maxHeight: 50, marginBottom: SIZES.sm },
+  filtrosContentPremium: { paddingHorizontal: SIZES.padding, gap: SIZES.sm },
+  filtroChipPremium: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: SIZES.radiusFull, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.border },
+  filtroChipAtivoPremium: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filtroTextPremium: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
+  filtroTextAtivoPremium: { color: COLORS.white, fontWeight: '700' },
+  filtroInfoPremium: { paddingHorizontal: SIZES.padding, paddingVertical: SIZES.sm, fontSize: 13, color: COLORS.textSecondary },
+
+  // Busca (legacy)
   searchContainer: { padding: 15, backgroundColor: COLORS.surface },
   searchInput: { backgroundColor: COLORS.background, borderRadius: SIZES.radiusSm, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border },
 
-  // Filtros
+  // Filtros (legacy)
   filtrosContainer: { backgroundColor: COLORS.surface, maxHeight: 60 },
   filtrosContent: { paddingHorizontal: 15, paddingVertical: 10, gap: 10 },
   filtroChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.background, marginRight: 10, borderWidth: 1, borderColor: COLORS.border },
