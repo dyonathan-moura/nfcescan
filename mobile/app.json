@@ -1,19 +1,26 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "NFC-e Scanner",
+    "slug": "nfcescan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2a89339c-28cd-4e45-9b72-650af8fa6596"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dyonathanmoura.nfcescan"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.dyonathanmoura.mobile"
+      "package": "com.dyonathanmoura.nfcescan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
