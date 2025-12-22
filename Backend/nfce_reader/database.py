@@ -237,7 +237,7 @@ def create_nota(
     db.flush()  # Obter ID antes de criar itens
     
     # Criar itens com classificação automática
-    from .classifier import classify_product
+    from classifier import classify_product
     
     # Cache de categorias para evitar múltiplas queries
     categoria_cache = {}
