@@ -1,0 +1,18 @@
+# --- Geral ---
+.DS_Store
+.env
+.vscode/
+
+# --- Python (Backend) ---
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/notas.db
+backend/notas.db-journal
+
+# --- Node/Expo (Mobile) ---
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/*.log
