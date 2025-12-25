@@ -158,9 +158,8 @@ def seed_default_categorias(db: Session):
     Executado na inicialização do servidor.
     """
     
-    # Categorias padrão com emojis
+    # Categorias padrão com emojis (sem 'Alimentação' - é genérico demais)
     defaults = [
-        {"nome": "Alimentação", "icone": "🍽️", "cor": "#FF6B35"},
         {"nome": "Bebidas", "icone": "🥤", "cor": "#4ECDC4"},
         {"nome": "Transporte", "icone": "🚗", "cor": "#45B7D1"},
         {"nome": "Casa", "icone": "🏠", "cor": "#96CEB4"},

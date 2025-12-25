@@ -32,8 +32,8 @@ CATEGORIAS_FORTES = {
         "absorvente", "gilete", "barbeador"
     ],
     "Pet": [
-        "racao", "pet ", " pet", "cachorro", "gato", "felino", "pedigree", "whiskas",
-        "royal canin", "golden", "premier"
+        "racao", "petisco", "cachorro", "gato", "felino", "pedigree", "whiskas",
+        "royal canin", "golden", "premier", "cao", "canino"
     ],
     "Farmácia": [
         "remedio", "medicamento", "dipirona", "paracetamol", "ibuprofeno",
@@ -60,7 +60,8 @@ CATEGORIAS_FRACAS = {
         "carne", "bife", "contra file", "file mignon", "maminha", "picanha",
         "alcatra", "patinho", "acem", "costela", "linguica", "salsicha",
         "bacon", "presunto", "mortadela", "peixe", "salmao", "tilapia",
-        "frango", "coxa", "sobrecoxa", "asa"
+        "frango", "fgo", "coxa", "sobrecoxa", "asa", "coracao", "figado", "moela",
+        "paleta", "bov", "sui", "seara", "sadia", "perdigao", "aurora"
     ],
     "Hortifruti": [
         "banana", "maca", "laranja", "limao", "uva", "morango", "maracuja",
@@ -118,14 +119,14 @@ def classify_product(nome_produto: str) -> str:
                 return categoria
 
     # 2. CAMADA 2: Nome Principal (Candidato)
-    candidato = "Alimentação" # Default fallback
+    candidato = "Outros"  # Default = manda pra IA
     
     for categoria, palavras in CATEGORIAS_FRACAS.items():
         for palavra in palavras:
             if palavra in nome:
                 candidato = categoria
                 break
-        if candidato != "Alimentação":
+        if candidato != "Outros":
             break
             
     # 3. CAMADA 3: Tira Teima com Unidade

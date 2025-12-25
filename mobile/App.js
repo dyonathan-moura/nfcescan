@@ -78,8 +78,10 @@ export default function App() {
   const [nfceData, setNfceData] = useState(null);
   const [scanned, setScanned] = useState(false); // Debounce para evitar múltiplas leituras
 
+  // Estados - Navegação
+  const [activeTab, setActiveTab] = useState('reports'); // 'history', 'scan', 'reports'
+
   // Estados - Histórico
-  const [showHistorico, setShowHistorico] = useState(false);
   const [notas, setNotas] = useState([]);
   const [loadingNotas, setLoadingNotas] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,12 +105,12 @@ export default function App() {
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
 
   // Estados - Dashboard
-  const [showDashboard, setShowDashboard] = useState(false);
+  // const [showDashboard, setShowDashboard] = useState(true); // Substituído por activeTab
   const [dashboardData, setDashboardData] = useState(null);
   const [statsData, setStatsData] = useState(null);
   const [fornecedoresData, setFornecedoresData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
-  const [dashboardFiltro, setDashboardFiltro] = useState('mes');
+  const [dashboardFiltro, setDashboardFiltro] = useState('ano'); // Filtro padrão: Este Ano
 
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -251,20 +253,24 @@ export default function App() {
     }
   }, []);
 
-  // Carregar notas e categorias quando abrir histórico
+  // Carregar notas e categorias quando abrir histórico ou scan
   useEffect(() => {
-    if (showHistorico) {
+    if (activeTab === 'history' || activeTab === 'scan') {
       fetchNotas(busca, filtroAtivo);
       fetchCategorias();
     }
-  }, [showHistorico]);
+    // Resetar scanner quando voltar para aba scan (garante que sempre pode ler)
+    if (activeTab === 'scan' && !modalVisible) {
+      setScanned(false);
+    }
+  }, [activeTab]);
 
   // Carregar dashboard quando abrir
   useEffect(() => {
-    if (showDashboard) {
+    if (activeTab === 'reports') {
       fetchDashboard(dashboardFiltro);
     }
-  }, [showDashboard, dashboardFiltro]);
+  }, [activeTab, dashboardFiltro]);
 
   // Tela de carregamento enquanto fontes carregam
   if (!fontsLoaded) {
@@ -368,6 +374,16 @@ export default function App() {
             : item
         );
         setSelectedNota({ ...selectedNota, itens: itensAtualizados });
+      }
+
+      // Atualizar item localmente - Scan Recente (nfceData)
+      if (nfceData) {
+        const itensAtualizados = nfceData.itens.map(item =>
+          item.id === selectedItemForCategory.id
+            ? { ...item, categoria: categorias.find(c => c.id === categoriaId) }
+            : item
+        );
+        setNfceData({ ...nfceData, itens: itensAtualizados });
       }
 
       Alert.alert('✅', 'Categoria atualizada!');
@@ -497,10 +513,12 @@ export default function App() {
       } else {
         showHumanError('Erro de conexão.\n\n• Verifique o Wi-Fi\n• O servidor está rodando?');
       }
+      // Em caso de erro, resetar para permitir nova leitura após 2s
+      setTimeout(() => setScanned(false), 2000);
     } finally {
       setIsLoading(false);
-      // Reset após 2 segundos para permitir nova leitura
-      setTimeout(() => setScanned(false), 2000);
+      // Se deu erro/exception, resetar para permitir nova leitura
+      // Se sucesso, o reset acontece quando fechar o modal ("Nova Leitura")
     }
   };
 
@@ -526,12 +544,22 @@ export default function App() {
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.itemRow}
-      onPress={() => handleItemLongPress(item)}
+      onPress={() => handleItemLongPress(item)} // Clique normal agora abre modal
       activeOpacity={0.7}
     >
-      <Text style={styles.itemIcon}>{getCategoryIcon(item.categoria)}</Text>
-      <Text style={styles.itemName} numberOfLines={2}>{item.nome}</Text>
-      <Text style={styles.itemQtd}>{item.qtd}x</Text>
+      <View style={{ alignItems: 'center', marginRight: SIZES.sm }}>
+        <Text style={styles.itemIcon}>{getCategoryIcon(item.categoria)}</Text>
+        {/* Indicador visual de edição */}
+        <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: COLORS.surface, borderRadius: 8 }}>
+          <Text style={{ fontSize: 10 }}>✏️</Text>
+        </View>
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={styles.itemName} numberOfLines={2}>{item.nome}</Text>
+        <Text style={styles.itemQtd}>{item.qtd}x</Text>
+      </View>
+
       <Text style={styles.itemValor}>R$ {item.valor.toFixed(2)}</Text>
     </TouchableOpacity>
   );
@@ -555,7 +583,7 @@ export default function App() {
   );
 
   // ===== TELA DE DASHBOARD (ANALYTICS) =====
-  if (showDashboard) {
+  const DashboardScreen = () => {
     const screenWidth = Dimensions.get('window').width;
     const barColors = [COLORS.primary, COLORS.secondary, COLORS.accent, COLORS.success, '#9CA3AF'];
 
@@ -569,9 +597,8 @@ export default function App() {
 
         {/* Header */}
         <View style={styles.dashboardHeaderPremium}>
-          <TouchableOpacity onPress={() => setShowDashboard(false)} style={styles.backButtonContainer}>
-            <Text style={styles.backButtonIcon}>←</Text>
-          </TouchableOpacity>
+          {/* Botão de voltar removido para navegação por abas */}
+          <View style={{ width: 20 }} />
           <Text style={styles.dashboardTitleLarge}>Análise de Gastos</Text>
           {statsData?.comparativo?.tendencia && (
             <View style={[
@@ -748,16 +775,15 @@ export default function App() {
   }
 
   // ===== TELA DE HISTÓRICO (PREMIUM) =====
-  if (showHistorico) {
+  const HistoryScreen = () => {
     return (
       <SafeAreaView style={styles.historicoContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
         {/* Header Premium */}
         <View style={styles.historicoHeaderPremium}>
-          <TouchableOpacity onPress={() => setShowHistorico(false)} style={styles.backButtonContainer}>
-            <Text style={styles.backButtonIcon}>←</Text>
-          </TouchableOpacity>
+          {/* Botão de voltar removido */}
+          <View style={{ width: 20 }} />
           <Text style={styles.historicoTitleLarge}>Histórico</Text>
         </View>
 
@@ -1011,90 +1037,168 @@ export default function App() {
   }
 
   // ===== TELA DA CÂMERA (SCANNER) =====
+  const ScanScreen = () => {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+        {/* Câmera só ativa se for a aba scan E estiver focado - gerenciado p/ Parent, mas aqui reforça */}
+        <CameraView
+          style={styles.camera}
+          facing={facing}
+          enableTorch={flashEnabled}
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          onBarcodeScanned={scanned || modalVisible ? undefined : handleBarcodeScanned}
+        >
+          <View style={styles.cameraOverlay}>
+            <SafeAreaView style={{ flex: 1 }}>
+              <View style={styles.cameraHeader}>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity style={styles.cameraHeaderButton} onPress={toggleFlash}>
+                  <Feather name={flashEnabled ? 'zap' : 'zap-off'} size={20} color={COLORS.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.frameContainer}>
+                <View style={styles.frame} />
+                <Text style={styles.instructionText}>Aponte para o QR Code da nota</Text>
+              </View>
+
+              {/* Footer vazio para balancear layout */}
+              <View style={styles.cameraFooter} />
+            </SafeAreaView>
+          </View>
+        </CameraView>
+
+        {/* Loading Overlay */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <LottieAnimation name="loading" size={100} />
+            <Text style={styles.loadingText}>Processando nota...</Text>
+          </View>
+        )}
+
+        {/* Error Modal */}
+        <FriendlyModal visible={errorVisible} onClose={() => setErrorVisible(false)}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <GradientButton title="Tentar Novamente" onPress={() => setErrorVisible(false)} />
+          </View>
+        </FriendlyModal>
+
+        {/* Modal de Resultado */}
+        <Modal animationType="slide" visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{nfceData?.estabelecimento}</Text>
+              <Text style={styles.modalSubtitle}>{nfceData?.meta?.data_processamento}</Text>
+              {nfceData?.cached && (
+                <Text style={styles.cachedBadge}>⚡ Carregado do cache</Text>
+              )}
+            </View>
+
+            <FlatList
+              data={nfceData?.itens || []}
+              renderItem={renderItem}
+              keyExtractor={(item, index) => `item-${index}`}
+              style={styles.itemsList}
+            />
+
+            <View style={styles.modalFooter}>
+              <Text style={styles.totalLabel}>TOTAL</Text>
+              <Text style={styles.totalValue}>R$ {nfceData?.total?.toFixed(2)}</Text>
+            </View>
+
+            <GradientButton
+              title="Nova Leitura"
+              onPress={() => {
+                setModalVisible(false);
+                // Pequeno delay para evitar leitura instantânea do mesmo QR Code se ainda estiver na frente
+                setTimeout(() => setScanned(false), 1000);
+              }}
+              style={{ margin: SIZES.padding }}
+            />
+          </SafeAreaView>
+        </Modal>
+
+        {/* Modal de Seleção de Categoria (Para edição após Scan) */}
+        <FriendlyModal
+          visible={showCategoryModal}
+          onClose={() => { setShowCategoryModal(false); setCreateCategoryMode(false); }}
+          title={createCategoryMode ? "➕ Nova Categoria" : "🏷️ Escolha a Categoria"}
+        >
+          {createCategoryMode ? (
+            <>
+              <Text style={styles.modalSubtitleSmall}>Use o teclado de emojis do seu celular</Text>
+              <Input label="Nome da categoria" placeholder="Ex: Pets..." value={newCategoryName} onChangeText={setNewCategoryName} icon="📝" />
+              <Input label="Emoji" placeholder="🐕" value={newCategoryIcon} onChangeText={setNewCategoryIcon} maxLength={4} inputStyle={{ fontSize: 24, textAlign: 'center' }} />
+              <View style={styles.modalButtonsRow}>
+                <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setCreateCategoryMode(false)}><Text style={styles.modalButtonSecondaryText}>← Voltar</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.modalButtonPrimary} onPress={createNewCategory}><Text style={styles.modalButtonPrimaryText}>Criar</Text></TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.modalSubtitleSmall} numberOfLines={2}>Item: {selectedItemForCategory?.nome}</Text>
+              <CategoryGrid
+                categories={categorias}
+                selectedId={selectedItemForCategory?.categoria?.id}
+                onSelect={(catId) => updateItemCategory(catId)}
+                onAddPress={() => setCreateCategoryMode(true)}
+                columns={4}
+              />
+            </>
+          )}
+        </FriendlyModal>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      {/* Conteúdo Principal - Usamos display:none ao invés de desmontar para evitar flicker */}
+      <View style={[{ flex: 1 }, activeTab !== 'reports' && { display: 'none' }]}>
+        <DashboardScreen />
+      </View>
+      <View style={[{ flex: 1 }, activeTab !== 'history' && { display: 'none' }]}>
+        <HistoryScreen />
+      </View>
+      <View style={[{ flex: 1 }, activeTab !== 'scan' && { display: 'none' }]}>
+        <ScanScreen />
+      </View>
 
-      <CameraView
-        style={styles.camera}
-        facing={facing}
-        enableTorch={flashEnabled}
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-      >
-        <View style={styles.cameraOverlay}>
-          <SafeAreaView style={{ flex: 1 }}>
-            <View style={styles.cameraHeader}>
-              <TouchableOpacity style={styles.cameraHeaderButton} onPress={() => setShowHistorico(true)}>
-                <Feather name="x" size={24} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cameraHeaderButton} onPress={toggleFlash}>
-                <Feather name={flashEnabled ? 'zap' : 'zap-off'} size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
+      {/* BARRA DE NAVEGAÇÃO INFERIOR */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => setActiveTab('history')}
+        >
+          <Feather name="clock" size={24} color={activeTab === 'history' ? COLORS.primary : COLORS.textMuted} />
+          <Text style={[styles.navLabel, activeTab === 'history' && styles.navLabelActive]}>Histórico</Text>
+        </TouchableOpacity>
+
+        {/* Botão Central Destacado (Scanner) */}
+        <View style={styles.scanButtonContainer}>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => setActiveTab('scan')}
+            activeOpacity={0.9}
+          >
+            <View style={styles.scanButtonInner}>
+              <Feather name="maximize" size={28} color="#FFF" />
             </View>
-
-            <View style={styles.frameContainer}>
-              <View style={styles.frame} />
-              <Text style={styles.instructionText}>Aponte para o QR Code da nota</Text>
-            </View>
-
-            <View style={styles.cameraFooter}>
-              <TouchableOpacity style={styles.navButton} onPress={() => setShowHistorico(true)}>
-                <Feather name="clock" size={24} color={COLORS.textPrimary} />
-                <Text style={styles.navButtonText}>Histórico</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.navButton} onPress={() => setShowDashboard(true)}>
-                <Feather name="bar-chart-2" size={24} color={COLORS.textPrimary} />
-                <Text style={styles.navButtonText}>Relatórios</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
+          </TouchableOpacity>
         </View>
-      </CameraView>
 
-      {/* Loading Overlay */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <LottieAnimation name="loading" size={100} />
-          <Text style={styles.loadingText}>Processando nota...</Text>
-        </View>
-      )}
-
-      {/* Error Modal */}
-      <FriendlyModal visible={errorVisible} onClose={() => setErrorVisible(false)}>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
-          <Text style={styles.errorText}>{errorMessage}</Text>
-          <GradientButton title="Tentar Novamente" onPress={() => setErrorVisible(false)} />
-        </View>
-      </FriendlyModal>
-
-      {/* Modal de Resultado */}
-      <Modal animationType="slide" visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{nfceData?.estabelecimento}</Text>
-            <Text style={styles.modalSubtitle}>{nfceData?.meta?.data_processamento}</Text>
-            {nfceData?.cached && (
-              <Text style={styles.cachedBadge}>⚡ Carregado do cache</Text>
-            )}
-          </View>
-
-          <FlatList
-            data={nfceData?.itens || []}
-            renderItem={renderItem}
-            keyExtractor={(item, index) => `item-${index}`}
-            style={styles.itemsList}
-          />
-
-          <View style={styles.modalFooter}>
-            <Text style={styles.totalLabel}>TOTAL</Text>
-            <Text style={styles.totalValue}>R$ {nfceData?.total?.toFixed(2)}</Text>
-          </View>
-
-          <GradientButton title="Nova Leitura" onPress={() => setModalVisible(false)} style={{ margin: SIZES.padding }} />
-        </SafeAreaView>
-      </Modal>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => setActiveTab('reports')}
+        >
+          <Feather name="bar-chart-2" size={24} color={activeTab === 'reports' ? COLORS.primary : COLORS.textMuted} />
+          <Text style={[styles.navLabel, activeTab === 'reports' && styles.navLabelActive]}>Relatórios</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -2052,6 +2156,70 @@ const styles = StyleSheet.create({
   comparativoVariacao: {
     fontSize: 14,
     fontFamily: FONTS.bold,
+  },
+
+  // ===== BOTTOM NAVIGATION =====
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceSolid,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingBottom: 20, // Padding para segurança em telas modernas
+    paddingTop: 10,
+    height: 85,
+    alignItems: 'flex-start', // Alinha itens no topo, ajustado pelo padding
+    justifyContent: 'space-around',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 10,
+  },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginTop: 5,
+  },
+  navLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    color: COLORS.textMuted,
+    fontFamily: FONTS.semiBold,
+  },
+  navLabelActive: {
+    color: COLORS.primary,
+  },
+  scanButtonContainer: {
+    marginTop: -30, // Floating effect
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.background, // Borda externa para separar do fundo
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  scanButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary, // Laranja
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
 });
 
