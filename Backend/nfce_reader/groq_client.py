@@ -9,7 +9,7 @@ from groq import Groq
 from typing import List, Dict, Optional
 
 # Modelo rápido e eficiente
-MODEL_NAME = "llama-3.1-8b-instant"
+MODEL_NAME = "llama-3.3-70b-versatile"
 
 class GroqClient:
     def __init__(self, api_key: Optional[str] = None):
