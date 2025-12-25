@@ -262,15 +262,22 @@ def create_nota(
     db.add(nota)
     db.flush()  # Obter ID antes de criar itens
     
-    # Criar itens com classificação automática
-    from classification_service import classify_item_smart
+    # Criar itens com classificação automática EM LOTE
+    from classification_service import classify_items_batch
+    
+    # Extrair todos os nomes de produtos
+    nomes_produtos = [item.get("nome", "") for item in itens]
+    
+    # Classificar todos de uma vez (1 chamada à IA)
+    print(f"📦 Classificando {len(nomes_produtos)} itens em lote...")
+    classificacoes = classify_items_batch(db, nomes_produtos)
     
     # Cache de categorias para evitar múltiplas queries
     categoria_cache = {}
     
     for item_data in itens:
         nome_item = item_data.get("nome", "")
-        categoria_nome = classify_item_smart(db, nome_item)
+        categoria_nome = classificacoes.get(nome_item, "Outros")
         
         # Buscar categoria_id (com cache)
         if categoria_nome not in categoria_cache:
