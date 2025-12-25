@@ -53,6 +53,8 @@ backend/__pycache__/
 backend/*.pyc
 backend/notas.db
 backend/notas.db-journal
+Backend/analyze_db.py 
+Backend/reset_db.py
 
 # --- Node/Expo (Mobile) ---
 mobile/node_modules/

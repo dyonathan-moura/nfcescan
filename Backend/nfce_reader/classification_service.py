@@ -4,9 +4,9 @@ Serviço de Classificação Híbrida.
 Orquestra: Regras Locais -> Memória (Correções) -> AI (Groq).
 """
 from sqlalchemy.orm import Session
-from .database import CategoriaDB, CorrecaoClassificacaoDB
-from .classifier import classify_product as classify_rules
-from .groq_client import GroqClient
+from database import CategoriaDB, CorrecaoClassificacaoDB
+from classifier import classify_product as classify_rules
+from groq_client import GroqClient
 import os
 
 # Inicializar cliente Groq
