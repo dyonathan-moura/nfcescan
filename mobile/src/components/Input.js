@@ -1,14 +1,11 @@
 /**
- * DarkInput - Campo de texto estilizado para dark mode
- * 
- * Visual consistente com o tema glass/neon.
+ * Input - A clean, standard input component for the Friendly theme.
  */
-
 import React from 'react';
 import { StyleSheet, View, TextInput, Text } from 'react-native';
-import { COLORS, SIZES } from '../constants/theme';
+import { COLORS, SIZES, FONTS } from '../../theme';
 
-export default function DarkInput({
+export default function Input({
     value,
     onChangeText,
     placeholder,
@@ -58,9 +55,9 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 12,
+        fontFamily: FONTS.semiBold,
         color: COLORS.textSecondary,
         marginBottom: SIZES.xs,
-        fontWeight: '500',
     },
     inputContainer: {
         flexDirection: 'row',
@@ -68,17 +65,19 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderWidth: 1,
         borderColor: COLORS.border,
-        borderRadius: 12,
+        borderRadius: SIZES.radius,
         paddingHorizontal: SIZES.md,
     },
     icon: {
         fontSize: 18,
         marginRight: SIZES.sm,
+        color: COLORS.textSecondary,
     },
     input: {
         flex: 1,
         paddingVertical: 14,
         fontSize: 16,
+        fontFamily: FONTS.regular,
         color: COLORS.textPrimary,
     },
     inputWithIcon: {

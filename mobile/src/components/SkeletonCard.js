@@ -6,7 +6,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated } from 'react-native';
-import { COLORS, SIZES } from '../constants/theme';
+import { COLORS, SIZES } from '../../theme';
 
 export default function SkeletonCard({
     width = '100%',
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     skeletonRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS.surfaceSolid,
         padding: SIZES.md,
         borderRadius: SIZES.radius,
         marginBottom: SIZES.sm,

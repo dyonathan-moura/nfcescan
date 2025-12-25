@@ -7,7 +7,7 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import GradientButton from './GradientButton';
-import { COLORS, SIZES } from '../constants/theme';
+import { COLORS, SIZES, FONTS } from '../../theme';
 
 export default function EmptyState({
     icon = '📭',

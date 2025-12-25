@@ -7,7 +7,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, FONTS } from '../constants/theme';
+import { COLORS, SIZES, FONTS, SHADOWS } from '../../theme';
 
 export default function GradientButton({
     title,
@@ -37,7 +37,7 @@ export default function GradientButton({
             onPress={onPress}
             disabled={disabled}
             style={[
-                styles.buttonShadow,
+                styles.button,
                 disabled && styles.disabled,
                 style
             ]}
@@ -67,13 +67,10 @@ export default function GradientButton({
 }
 
 const styles = StyleSheet.create({
-    buttonShadow: {
+    button: {
         borderRadius: SIZES.radius,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-        elevation: 8,
+        ...SHADOWS.md,
+        shadowColor: COLORS.primary, // Make shadow color consistent with button
     },
     gradient: {
         borderRadius: SIZES.radius,
@@ -83,11 +80,11 @@ const styles = StyleSheet.create({
     },
     icon: {
         fontSize: 20,
+        color: COLORS.white,
     },
     text: {
         color: COLORS.white,
         fontFamily: FONTS.bold,
-        fontWeight: 'bold',
         textAlign: 'center',
     },
     disabled: {

@@ -6,8 +6,8 @@
 
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import GlassCard from './GlassCard';
-import { COLORS, SIZES, FONTS } from '../constants/theme';
+import Card from './Card';
+import { COLORS, SIZES, FONTS } from '../../theme';
 
 export default function StatCard({
     label,
@@ -33,7 +33,7 @@ export default function StatCard({
     const accentColor = getTypeColor();
 
     return (
-        <GlassCard style={[styles.container, compact && styles.containerCompact, style]}>
+        <Card style={[styles.container, compact && styles.containerCompact, style]}>
             {icon && (
                 <View style={[styles.iconContainer, { backgroundColor: `${accentColor}20` }]}>
                     <Text style={[styles.icon, { color: accentColor }]}>{icon}</Text>
@@ -51,13 +51,14 @@ export default function StatCard({
             <Text style={[styles.label, compact && styles.labelCompact]}>
                 {label}
             </Text>
-        </GlassCard>
+        </Card>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         alignItems: 'center',
+        padding: SIZES.md,
         minWidth: 120,
     },
     containerCompact: {
@@ -77,8 +78,7 @@ const styles = StyleSheet.create({
     },
     value: {
         fontSize: SIZES.font3xl,
-        fontFamily: FONTS.black,
-        fontWeight: '900',
+        fontFamily: FONTS.bold,
         marginBottom: SIZES.xs,
     },
     valueCompact: {

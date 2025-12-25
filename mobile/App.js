@@ -15,18 +15,20 @@ import {
   RefreshControl,
   Alert,
   Vibration,
+  Animated,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
 import { PieChart } from 'react-native-chart-kit';
-import { useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_700Bold, Archivo_900Black } from '@expo-google-fonts/archivo';
+import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Feather } from '@expo/vector-icons';
 
 // Design System
 import { COLORS, FONTS, SIZES, SHADOWS } from './theme';
 import GradientButton from './src/components/GradientButton';
-import { GlassModal, CategoryGrid, SkeletonList, DarkInput, EmptyState, GlassLoader } from './src/components';
+import { FriendlyModal, CategoryGrid, SkeletonList, Input, EmptyState, CategoryIcon, LottieAnimation, KPIIcon } from './src/components';
 
 // Utilities
 import { formatCurrency, formatDateShort, formatDateFull } from './src/utils/formatters';
@@ -36,8 +38,15 @@ import { formatCurrency, formatDateShort, formatDateFull } from './src/utils/for
 // ============================================================================
 const API_URL = 'https://nfcescan-api.onrender.com';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.7;
+
+// Clean Frame Scanner Constants
+const FRAME_SIZE = 280;
+const FRAME_RADIUS = 24;
+const FRAME_TOP = SCREEN_HEIGHT * 0.22;
+const FRAME_LEFT = (SCREEN_WIDTH - FRAME_SIZE) / 2;
+const FRAME_BOTTOM = FRAME_TOP + FRAME_SIZE;
 
 // Filtros rápidos de data
 const FILTROS_DATA = [
@@ -51,12 +60,11 @@ const FILTROS_DATA = [
 const getCategoryIcon = (categoria) => categoria?.icone || '📦';
 
 export default function App() {
-  // Carregar fontes Archivo
+  // Carregar fontes Nunito
   const [fontsLoaded] = useFonts({
-    Archivo_400Regular,
-    Archivo_500Medium,
-    Archivo_700Bold,
-    Archivo_900Black,
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
   });
 
   // Estados - Câmera
@@ -97,10 +105,36 @@ export default function App() {
   // Estados - Dashboard
   const [showDashboard, setShowDashboard] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
+  const [statsData, setStatsData] = useState(null);
+  const [fornecedoresData, setFornecedoresData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [dashboardFiltro, setDashboardFiltro] = useState('mes');
 
   const cameraRef = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  // Animação de pulso para o frame
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [pulseAnim]);
+
+  const frameScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.03],
+  });
 
   // Buscar notas do servidor
   const fetchNotas = useCallback(async (searchTerm = '', filtro = 'todos') => {
@@ -200,8 +234,16 @@ export default function App() {
       const inicio = dataInicio.toISOString().split('T')[0];
       const fim = dataFim.toISOString().split('T')[0];
 
-      const response = await axios.get(`${API_URL}/dashboard/resumo?data_inicio=${inicio}&data_fim=${fim}`);
-      setDashboardData(response.data);
+      // Buscar todos os dados em paralelo
+      const [categoriasRes, statsRes, fornecedoresRes] = await Promise.all([
+        axios.get(`${API_URL}/dashboard/resumo?data_inicio=${inicio}&data_fim=${fim}`),
+        axios.get(`${API_URL}/dashboard/estatisticas?data_inicio=${inicio}&data_fim=${fim}`),
+        axios.get(`${API_URL}/dashboard/fornecedores?data_inicio=${inicio}&data_fim=${fim}&limit=5`),
+      ]);
+
+      setDashboardData(categoriasRes.data);
+      setStatsData(statsRes.data);
+      setFornecedoresData(fornecedoresRes.data);
     } catch (error) {
       console.error('Erro ao buscar dashboard:', error);
     } finally {
@@ -228,9 +270,9 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontWeight: '500' }}>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontFamily: FONTS.semiBold }}>
           Carregando...
         </Text>
       </View>
@@ -248,11 +290,9 @@ export default function App() {
         <Text style={styles.permissionIcon}>📷</Text>
         <Text style={styles.permissionTitle}>Acesso à Câmera</Text>
         <Text style={styles.permissionText}>
-          Precisamos da câmera para ler QR Codes
+          Precisamos da sua permissão para usar a câmera e escanear as notas fiscais.
         </Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Permitir Câmera</Text>
-        </TouchableOpacity>
+        <GradientButton title="Permitir Câmera" onPress={requestPermission} />
       </View>
     );
   }
@@ -514,39 +554,47 @@ export default function App() {
     </TouchableOpacity>
   );
 
-  // ===== TELA DE DASHBOARD (PREMIUM) =====
+  // ===== TELA DE DASHBOARD (ANALYTICS) =====
   if (showDashboard) {
     const screenWidth = Dimensions.get('window').width;
+    const barColors = [COLORS.primary, COLORS.secondary, COLORS.accent, COLORS.success, '#9CA3AF'];
 
-    // Preparar dados para gráfico de pizza com cores neon
-    const neonColors = [COLORS.primary, COLORS.secondary, COLORS.success, COLORS.warning, COLORS.danger, '#9b59b6', '#1abc9c'];
-    const chartData = dashboardData?.categorias?.map((cat, index) => ({
-      name: cat.nome,
-      population: cat.total,
-      color: neonColors[index % neonColors.length],
-      legendFontColor: COLORS.textSecondary,
-      legendFontSize: 11,
-    })) || [];
+    // Pegar top 5 categorias
+    const topCategorias = dashboardData?.categorias?.slice(0, 5) || [];
+    const maxCatValue = topCategorias[0]?.total || 1;
 
     return (
       <SafeAreaView style={styles.dashboardContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header Premium */}
+        {/* Header */}
         <View style={styles.dashboardHeaderPremium}>
           <TouchableOpacity onPress={() => setShowDashboard(false)} style={styles.backButtonContainer}>
             <Text style={styles.backButtonIcon}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.dashboardTitleLarge}>Relatórios</Text>
+          <Text style={styles.dashboardTitleLarge}>Análise de Gastos</Text>
+          {statsData?.comparativo?.tendencia && (
+            <View style={[
+              styles.trendBadge,
+              { backgroundColor: statsData.comparativo.tendencia === 'alta' ? COLORS.danger + '30' : COLORS.success + '30' }
+            ]}>
+              <Text style={[
+                styles.trendText,
+                { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
+              ]}>
+                {statsData.comparativo.tendencia === 'alta' ? '↑' : '↓'} {Math.abs(statsData.comparativo.variacao_percentual)}%
+              </Text>
+            </View>
+          )}
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: SIZES.padding, paddingBottom: SIZES.xl }}>
-          {/* Filtros de Período (Chips) */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SIZES.xl }}>
+          {/* Filtros de Período */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.dashboardFilterScroll}
-            contentContainerStyle={{ gap: SIZES.sm }}
+            contentContainerStyle={{ paddingHorizontal: SIZES.padding, gap: SIZES.sm }}
           >
             {[
               { id: 'mes', label: 'Este Mês' },
@@ -567,88 +615,132 @@ export default function App() {
           </ScrollView>
 
           {loadingDashboard ? (
-            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
-          ) : dashboardData ? (
+            <View style={{ alignItems: 'center', marginTop: 60 }}>
+              <LottieAnimation name="loading" size={100} />
+              <Text style={styles.loadingText}>Carregando análise...</Text>
+            </View>
+          ) : statsData ? (
             <>
-              {/* Cards de Resumo (KPIs) */}
-              <View style={styles.kpiRow}>
-                <View style={styles.kpiCardMain}>
-                  <Text style={styles.kpiLabel}>Total no Período</Text>
-                  <Text style={styles.kpiValueLarge}>
-                    R$ {dashboardData.total_periodo?.toFixed(2) || '0,00'}
+              {/* ===== KPIs GRID (2x2) ===== */}
+              <View style={styles.kpiGrid}>
+                {/* Total Gasto */}
+                <View style={[styles.kpiCardNew, { borderColor: COLORS.primary }]}>
+                  <KPIIcon name="money" size={40} />
+                  <Text style={styles.kpiLabelNew}>Total Gasto</Text>
+                  <Text style={[styles.kpiValueNew, { color: COLORS.primary }]}>
+                    R$ {statsData.total?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+
+                {/* Média por Dia */}
+                <View style={[styles.kpiCardNew, { borderColor: COLORS.accent }]}>
+                  <KPIIcon name="chart" size={40} />
+                  <Text style={styles.kpiLabelNew}>Média/Dia</Text>
+                  <Text style={[styles.kpiValueNew, { color: COLORS.accent }]}>
+                    R$ {statsData.media_dia?.toFixed(2)}
+                  </Text>
+                </View>
+
+                {/* Total de Notas */}
+                <View style={[styles.kpiCardNew, { borderColor: COLORS.success }]}>
+                  <KPIIcon name="receipt" size={40} />
+                  <Text style={styles.kpiLabelNew}>Compras</Text>
+                  <Text style={[styles.kpiValueNew, { color: COLORS.success }]}>
+                    {statsData.num_notas}
+                  </Text>
+                </View>
+
+                {/* Ticket Médio */}
+                <View style={[styles.kpiCardNew, { borderColor: COLORS.secondary }]}>
+                  <KPIIcon name="store" size={40} />
+                  <Text style={styles.kpiLabelNew}>Ticket Médio</Text>
+                  <Text style={[styles.kpiValueNew, { color: COLORS.secondary }]}>
+                    R$ {statsData.ticket_medio?.toFixed(2)}
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.kpiRowSmall}>
-                <View style={styles.kpiCardSmall}>
-                  <Text style={styles.kpiIconSmall}>📅</Text>
-                  <Text style={styles.kpiLabelSmall}>Média/Dia</Text>
-                  <Text style={styles.kpiValueSmall}>
-                    R$ {(dashboardData.total_periodo / 30)?.toFixed(2) || '0'}
-                  </Text>
-                </View>
-                <View style={styles.kpiCardSmall}>
-                  <Text style={styles.kpiIconSmall}>🛒</Text>
-                  <Text style={styles.kpiLabelSmall}>Total Notas</Text>
-                  <Text style={styles.kpiValueSmall}>
-                    {dashboardData.categorias?.reduce((acc, c) => acc + 1, 0) || 0}
-                  </Text>
-                </View>
-              </View>
+              {/* ===== TOP CATEGORIAS (Barras Horizontais) ===== */}
+              <View style={styles.analyticSection}>
+                <Text style={styles.analyticSectionTitle}>📊 Top 5 Categorias</Text>
 
-              {/* Gráfico de Pizza */}
-              {chartData.length > 0 && (
-                <View style={styles.chartContainerPremium}>
-                  <Text style={styles.sectionTitle}>Distribuição por Categoria</Text>
-                  <PieChart
-                    data={chartData}
-                    width={screenWidth - (SIZES.padding * 2)}
-                    height={200}
-                    chartConfig={{
-                      color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                      labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                    }}
-                    accessor="population"
-                    backgroundColor="transparent"
-                    paddingLeft="15"
-                    absolute
-                  />
-                </View>
-              )}
-
-              {/* Detalhamento por Categoria */}
-              <Text style={styles.sectionTitle}>Detalhamento</Text>
-              <View style={styles.categoriesContainer}>
-                {dashboardData.categorias?.map((cat, index) => (
-                  <View key={cat.id} style={styles.categoryRowPremium}>
-                    <View style={[styles.categoryIconCircle, { backgroundColor: `${neonColors[index % neonColors.length]}20` }]}>
-                      <Text style={styles.categoryIcon}>{cat.icone}</Text>
-                    </View>
-                    <View style={styles.categoryInfo}>
-                      <View style={styles.categoryNameRow}>
-                        <Text style={styles.categoryName}>{cat.nome}</Text>
-                        <Text style={styles.categoryPercent}>{cat.porcentagem}%</Text>
+                {topCategorias.map((cat, index) => {
+                  const barWidth = (cat.total / maxCatValue) * 100;
+                  return (
+                    <View key={cat.id} style={styles.barRow}>
+                      <View style={styles.barLabel}>
+                        <CategoryIcon category={cat.nome} size={24} />
+                        <Text style={styles.barLabelText} numberOfLines={1}>{cat.nome}</Text>
                       </View>
-                      <View style={styles.progressBarTrack}>
+                      <View style={styles.barContainer}>
                         <View
                           style={[
-                            styles.progressBarFill,
+                            styles.barFill,
                             {
-                              width: `${Math.min(cat.porcentagem, 100)}%`,
-                              backgroundColor: neonColors[index % neonColors.length]
+                              width: `${barWidth}%`,
+                              backgroundColor: barColors[index % barColors.length]
                             }
                           ]}
                         />
                       </View>
-                      <Text style={styles.categoryTotal}>R$ {cat.total.toFixed(2)}</Text>
+                      <Text style={styles.barValue}>R$ {cat.total.toFixed(0)}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* ===== GASTOS POR FORNECEDOR ===== */}
+              {fornecedoresData?.fornecedores?.length > 0 && (
+                <View style={styles.analyticSection}>
+                  <Text style={styles.analyticSectionTitle}>🏪 Top Fornecedores</Text>
+
+                  {fornecedoresData.fornecedores.map((fornec, index) => (
+                    <View key={index} style={styles.fornecedorRow}>
+                      <View style={styles.fornecedorRank}>
+                        <Text style={styles.fornecedorRankText}>{index + 1}º</Text>
+                      </View>
+                      <View style={styles.fornecedorInfo}>
+                        <Text style={styles.fornecedorNome} numberOfLines={1}>{fornec.nome}</Text>
+                        <Text style={styles.fornecedorCompras}>{fornec.num_compras} compra(s)</Text>
+                      </View>
+                      <View style={styles.fornecedorValor}>
+                        <Text style={styles.fornecedorTotal}>R$ {fornec.total.toFixed(2)}</Text>
+                        <Text style={styles.fornecedorPercent}>{fornec.porcentagem}%</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* ===== COMPARATIVO ===== */}
+              {statsData?.comparativo && (
+                <View style={styles.analyticSection}>
+                  <Text style={styles.analyticSectionTitle}>📈 Comparativo</Text>
+                  <View style={styles.comparativoCard}>
+                    <View style={styles.comparativoRow}>
+                      <Text style={styles.comparativoLabel}>Período anterior:</Text>
+                      <Text style={styles.comparativoValue}>
+                        R$ {statsData.comparativo.total_anterior?.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.comparativoRow}>
+                      <Text style={styles.comparativoLabel}>Variação:</Text>
+                      <Text style={[
+                        styles.comparativoVariacao,
+                        { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
+                      ]}>
+                        {statsData.comparativo.tendencia === 'alta' ? '+' : ''}{statsData.comparativo.variacao_percentual}%
+                      </Text>
                     </View>
                   </View>
-                ))}
-              </View>
+                </View>
+              )}
             </>
           ) : (
-            <Text style={styles.emptyText}>Erro ao carregar dados</Text>
+            <View style={{ alignItems: 'center', marginTop: 60 }}>
+              <LottieAnimation name="empty" size={120} loop={false} />
+              <Text style={styles.emptyText}>Nenhum dado encontrado</Text>
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -815,7 +907,7 @@ export default function App() {
         </Modal>
 
         {/* Modal de Seleção de Categoria (Premium) */}
-        <GlassModal
+        <FriendlyModal
           visible={showCategoryModal}
           onClose={() => { setShowCategoryModal(false); setCreateCategoryMode(false); }}
           title={createCategoryMode ? "➕ Nova Categoria" : "🏷️ Escolha a Categoria"}
@@ -827,7 +919,7 @@ export default function App() {
                 Use o teclado de emojis do seu celular
               </Text>
 
-              <DarkInput
+              <Input
                 label="Nome da categoria"
                 placeholder="Ex: Pets, Lazer, Saúde..."
                 value={newCategoryName}
@@ -835,7 +927,7 @@ export default function App() {
                 icon="📝"
               />
 
-              <DarkInput
+              <Input
                 label="Emoji"
                 placeholder="🐕"
                 value={newCategoryIcon}
@@ -875,7 +967,7 @@ export default function App() {
               />
             </>
           )}
-        </GlassModal>
+        </FriendlyModal>
 
         {/* Modal de Renomear (funciona no Android) */}
         <Modal
@@ -918,116 +1010,64 @@ export default function App() {
     );
   }
 
-  // ===== TELA DA CÂMERA (PREMIUM) =====
+  // ===== TELA DA CÂMERA (SCANNER) =====
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      {/* ===== ÁREA DA CÂMERA (Superior - 70%) ===== */}
-      <View style={styles.cameraContainer}>
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          enableTorch={flashEnabled}
-          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-        >
-          {/* Overlay com Mira */}
-          <View style={styles.overlay}>
-            <View style={styles.overlayDark} />
-            <View style={styles.overlayMiddle}>
-              <View style={styles.overlayDark} />
-              <View style={styles.scanArea}>
-                <View style={[styles.corner, styles.cornerTL]} />
-                <View style={[styles.corner, styles.cornerTR]} />
-                <View style={[styles.corner, styles.cornerBL]} />
-                <View style={[styles.corner, styles.cornerBR]} />
-              </View>
-              <View style={styles.overlayDark} />
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        enableTorch={flashEnabled}
+        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+      >
+        <View style={styles.cameraOverlay}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <View style={styles.cameraHeader}>
+              <TouchableOpacity style={styles.cameraHeaderButton} onPress={() => setShowHistorico(true)}>
+                <Feather name="x" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cameraHeaderButton} onPress={toggleFlash}>
+                <Feather name={flashEnabled ? 'zap' : 'zap-off'} size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
             </View>
 
-            {/* Instrução */}
-            <View style={styles.instructionContainer}>
-              <Text style={styles.instructionText}>📱 Aponte para o QR Code</Text>
+            <View style={styles.frameContainer}>
+              <View style={styles.frame} />
+              <Text style={styles.instructionText}>Aponte para o QR Code da nota</Text>
             </View>
-            <View style={styles.overlayDark} />
-          </View>
 
-          {/* Botão Flash Flutuante (Glass) */}
-          <TouchableOpacity
-            style={[styles.floatingButton, styles.floatingButtonLeft]}
-            onPress={toggleFlash}
-          >
-            <BlurView intensity={30} tint="dark" style={styles.floatingButtonInner}>
-              <Text style={styles.floatingButtonText}>{flashEnabled ? '🔦' : '💡'}</Text>
-            </BlurView>
-          </TouchableOpacity>
-
-          {/* Botão Câmera Flutuante (Glass) */}
-          <TouchableOpacity
-            style={[styles.floatingButton, styles.floatingButtonRight]}
-            onPress={toggleCameraFacing}
-          >
-            <BlurView intensity={30} tint="dark" style={styles.floatingButtonInner}>
-              <Text style={styles.floatingButtonText}>🔄</Text>
-            </BlurView>
-          </TouchableOpacity>
-
-          {/* Indicador de Status Central */}
-          <View style={styles.statusIndicator}>
-            <View style={[styles.statusDot, scanned && styles.statusDotActive, isLoading && styles.statusDotLoading]} />
-          </View>
-
-          {/* Loading Overlay */}
-          {isLoading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Processando...</Text>
+            <View style={styles.cameraFooter}>
+              <TouchableOpacity style={styles.navButton} onPress={() => setShowHistorico(true)}>
+                <Feather name="clock" size={24} color={COLORS.textPrimary} />
+                <Text style={styles.navButtonText}>Histórico</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.navButton} onPress={() => setShowDashboard(true)}>
+                <Feather name="bar-chart-2" size={24} color={COLORS.textPrimary} />
+                <Text style={styles.navButtonText}>Relatórios</Text>
+              </TouchableOpacity>
             </View>
-          )}
-
-          {/* Erro Overlay */}
-          {errorVisible && (
-            <View style={styles.errorOverlay}>
-              <View style={styles.errorCard}>
-                <Text style={styles.errorIcon}>⚠️</Text>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-                <TouchableOpacity style={styles.errorButton} onPress={() => setErrorVisible(false)}>
-                  <Text style={styles.errorButtonText}>Tentar Novamente</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </CameraView>
-      </View>
-
-      {/* ===== PAINEL DE CONTROLE (Inferior - 30%) ===== */}
-      <View style={styles.controlPanel}>
-        {/* Resumo Rápido */}
-        <View style={styles.summarySection}>
-          <Text style={styles.summaryLabel}>Gastos do Mês</Text>
-          <Text style={styles.summaryValue}>
-            R$ {dashboardData?.total_periodo?.toFixed(2) || '0,00'}
-          </Text>
+          </SafeAreaView>
         </View>
+      </CameraView>
 
-        {/* Botões de Navegação */}
-        <View style={styles.actionButtonsRow}>
-          <GradientButton
-            title="Histórico"
-            icon="📋"
-            onPress={() => setShowHistorico(true)}
-            style={styles.actionButton}
-            colors={COLORS.secondaryGradient}
-          />
-          <GradientButton
-            title="Relatórios"
-            icon="📊"
-            onPress={() => setShowDashboard(true)}
-            style={styles.actionButton}
-          />
+      {/* Loading Overlay */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <LottieAnimation name="loading" size={100} />
+          <Text style={styles.loadingText}>Processando nota...</Text>
         </View>
-      </View>
+      )}
+
+      {/* Error Modal */}
+      <FriendlyModal visible={errorVisible} onClose={() => setErrorVisible(false)}>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <GradientButton title="Tentar Novamente" onPress={() => setErrorVisible(false)} />
+        </View>
+      </FriendlyModal>
 
       {/* Modal de Resultado */}
       <Modal animationType="slide" visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
@@ -1052,9 +1092,7 @@ export default function App() {
             <Text style={styles.totalValue}>R$ {nfceData?.total?.toFixed(2)}</Text>
           </View>
 
-          <TouchableOpacity style={styles.newScanButton} onPress={() => setModalVisible(false)}>
-            <Text style={styles.newScanButtonText}>📷 Nova Leitura</Text>
-          </TouchableOpacity>
+          <GradientButton title="Nova Leitura" onPress={() => setModalVisible(false)} style={{ margin: SIZES.padding }} />
         </SafeAreaView>
       </Modal>
     </View>
@@ -1066,259 +1104,954 @@ export default function App() {
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-
-  // Permissão
-  permissionContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 30 },
-  permissionIcon: { fontSize: 60, marginBottom: 20 },
-  permissionTitle: { color: COLORS.textPrimary, fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  permissionText: { color: COLORS.textSecondary, fontSize: 16, textAlign: 'center', marginBottom: 30 },
-  permissionButton: { backgroundColor: COLORS.primary, paddingHorizontal: 40, paddingVertical: 15, borderRadius: SIZES.radiusLg },
-  permissionButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-
-  // Câmera Premium
-  cameraContainer: {
-    flex: 0.7,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    overflow: 'hidden',
-    marginHorizontal: 0,
-  },
-  camera: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject },
-  overlayDark: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  overlayMiddle: { flexDirection: 'row', height: SCAN_AREA_SIZE },
-  scanArea: { width: SCAN_AREA_SIZE, height: SCAN_AREA_SIZE, backgroundColor: 'transparent' },
-  corner: { position: 'absolute', width: 35, height: 35, borderColor: COLORS.secondary, borderWidth: 4 },
-  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
-  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
-  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
-  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  instructionContainer: { backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 12, alignItems: 'center' },
-  instructionText: { color: COLORS.white, fontSize: 15, fontWeight: '500', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-
-  // Botões Flutuantes (Glass)
-  floatingButton: { position: 'absolute', top: 50, width: 50, height: 50, borderRadius: 25, overflow: 'hidden' },
-  floatingButtonLeft: { left: 20 },
-  floatingButtonRight: { right: 20 },
-  floatingButtonInner: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)' },
-  floatingButtonText: { fontSize: 22 },
-
-  // Indicador de Status
-  statusIndicator: { position: 'absolute', bottom: 30, alignSelf: 'center' },
-  statusDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.textMuted },
-  statusDotActive: { backgroundColor: COLORS.success },
-  statusDotLoading: { backgroundColor: COLORS.warning },
-
-  // Painel de Controle (Inferior)
-  controlPanel: {
-    flex: 0.3,
+  container: {
+    flex: 1,
     backgroundColor: COLORS.background,
-    paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.lg,
-    paddingBottom: SIZES.xl,
   },
-  summarySection: { alignItems: 'center', marginBottom: SIZES.lg },
-  summaryLabel: { color: COLORS.textSecondary, fontSize: SIZES.fontSm, fontWeight: '500', marginBottom: 4 },
-  summaryValue: { color: COLORS.textPrimary, fontSize: 32, fontWeight: '900' },
-  actionButtonsRow: { flexDirection: 'row', gap: SIZES.md },
-  actionButton: { flex: 1 },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: 30,
+  },
+  permissionIcon: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  permissionTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 24,
+    fontFamily: FONTS.bold,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  permissionText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
 
-  // Loading/Erro
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,12,21,0.9)', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: COLORS.textPrimary, fontSize: 18, marginTop: 15 },
-  errorOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,12,21,0.95)', justifyContent: 'center', alignItems: 'center', padding: 30 },
-  errorCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMd, padding: 25, alignItems: 'center', maxWidth: 300, borderWidth: 1, borderColor: COLORS.border },
-  errorIcon: { fontSize: 50, marginBottom: 15 },
-  errorText: { color: COLORS.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-  errorButton: { backgroundColor: COLORS.primary, paddingHorizontal: 30, paddingVertical: 12, borderRadius: SIZES.radiusLg },
-  errorButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
+  // Camera Screen
+  camera: {
+    flex: 1,
+  },
+  cameraOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'space-between',
+  },
+  cameraHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: SIZES.padding,
+  },
+  cameraHeaderButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: SIZES.radiusFull,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  frameContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  frame: {
+    width: SCREEN_WIDTH * 0.7,
+    height: SCREEN_WIDTH * 0.7,
+    borderWidth: 4,
+    borderColor: COLORS.primary,
+    borderRadius: SIZES.radiusLg,
+  },
+  instructionText: {
+    color: COLORS.white,
+    fontFamily: FONTS.semiBold,
+    fontSize: 16,
+    marginTop: SIZES.lg,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radius,
+  },
+  cameraFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: SIZES.padding,
+  },
+  navButton: {
+    alignItems: 'center',
+  },
+  navButtonText: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.semiBold,
+    marginTop: SIZES.xs,
+  },
 
-  // Controles
-  controlsContainer: { position: 'absolute', bottom: 40, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 30 },
-  controlButton: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  controlButtonActive: { backgroundColor: 'rgba(74,222,128,0.4)' },
-  controlButtonText: { fontSize: 24 },
+  // Loading and Error
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13, 13, 26, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.semiBold,
+    fontSize: 18,
+    marginTop: 15,
+  },
+  errorText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
 
-  // Scan Indicator (não é mais botão)
-  scanIndicator: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.5)' },
-  scanIndicatorActive: { backgroundColor: 'rgba(74,222,128,0.5)', borderColor: '#4ade80' },
-  scanIndicatorText: { fontSize: 32 },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  modalHeader: {
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.padding,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+  },
+  modalSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    marginTop: 4,
+  },
+  cachedBadge: {
+    color: COLORS.success,
+    fontSize: 12,
+    fontFamily: FONTS.semiBold,
+    marginTop: 5,
+  },
+  itemsList: {
+    flex: 1,
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.sm,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.md,
+    marginVertical: SIZES.xs,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  itemIcon: {
+    fontSize: 20,
+    marginRight: SIZES.md,
+  },
+  itemName: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textPrimary,
+  },
+  itemQtd: {
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginHorizontal: 10,
+  },
+  itemValor: {
+    fontSize: 15,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.padding,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+  },
+  totalValue: {
+    fontSize: 24,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
 
-  // Botão Histórico
-  historicoButton: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
-  historicoButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  // History Screen
+  historicoContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.sm,
+    backgroundColor: COLORS.surface,
+    ...SHADOWS.sm
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginLeft: SIZES.md,
+  },
+  backButton: {
+    padding: SIZES.sm
+  },
+  searchContainer: {
+    padding: SIZES.padding,
+    backgroundColor: COLORS.surface
+  },
+  searchInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    color: COLORS.textPrimary,
+  },
+  filtrosContainer: {
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.sm,
+    backgroundColor: COLORS.surface
+  },
+  filtroChip: {
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: COLORS.background,
+    marginRight: SIZES.sm,
+  },
+  filtroChipAtivo: {
+    backgroundColor: COLORS.primary,
+  },
+  filtroText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+  },
+  filtroTextAtivo: {
+    color: COLORS.white,
+  },
+  notasList: {
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.sm
+  },
+  notaCard: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  notaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.xs
+  },
+  notaEstabelecimento: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  notaTotal: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.accent,
+  },
+  notaData: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+  notaItens: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
 
-  // Histórico
-  historicoContainer: { flex: 1, backgroundColor: COLORS.background },
-  historicoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  historicoTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary },
-  backButton: { fontSize: 16, color: COLORS.secondary },
+  // Dashboard Screen
+  dashboardContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SIZES.md,
+    paddingHorizontal: SIZES.padding,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.md,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    ...SHADOWS.md,
+    marginHorizontal: SIZES.xs
+  },
+  kpiLabel: {
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.xs,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginHorizontal: SIZES.padding,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.sm,
+    ...SHADOWS.md,
+    marginBottom: SIZES.lg,
+  },
+  categoriesContainer: {
+    paddingHorizontal: SIZES.padding
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.sm,
+    ...SHADOWS.sm
+  },
+  categoryIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+  },
+  categoryInfo: {
+    flex: 1,
+  },
+  categoryNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryName: {
+    fontSize: 16,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textPrimary,
+  },
+  categoryPercent: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: SIZES.xs,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
 
-  // Histórico Premium
-  historicoHeaderPremium: { paddingHorizontal: SIZES.padding, paddingTop: SIZES.lg, paddingBottom: SIZES.md },
-  backButtonContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.surface, justifyContent: 'center', alignItems: 'center', marginBottom: SIZES.md },
-  backButtonIcon: { fontSize: 20, color: COLORS.textPrimary },
-  historicoTitleLarge: { fontSize: 32, fontWeight: '900', color: COLORS.textPrimary },
+  // Modal de Categoria
+  modalSubtitleSmall: {
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.lg,
+    textAlign: 'center'
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  modalButtonPrimary: {
+    flex: 1,
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    padding: 16,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    ...SHADOWS.sm
+  },
+  modalButtonSecondaryText: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.bold,
+    fontSize: 16,
+  },
 
-  // Busca Premium
-  searchContainerPremium: { paddingHorizontal: SIZES.padding, marginBottom: SIZES.md },
-  searchInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: SIZES.radius, paddingHorizontal: SIZES.md, borderWidth: 1, borderColor: COLORS.border },
-  searchIcon: { fontSize: 18, marginRight: SIZES.sm },
-  searchInputPremium: { flex: 1, paddingVertical: 14, fontSize: 16, color: COLORS.textPrimary },
+  // ========== PREMIUM STYLES ==========
+
+  // Header Premium (Histórico e Dashboard)
+  historicoHeaderPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.lg,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  dashboardHeaderPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.lg,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backButtonContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.glass,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  backButtonIcon: {
+    fontSize: 20,
+    color: COLORS.white,
+  },
+  historicoTitleLarge: {
+    fontSize: SIZES.font2xl,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  dashboardTitleLarge: {
+    fontSize: SIZES.font2xl,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+
+  // Search Premium
+  searchContainerPremium: {
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.md,
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.glass,
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: SIZES.sm,
+  },
+  searchInputPremium: {
+    flex: 1,
+    paddingVertical: SIZES.sm + 4,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    color: COLORS.textPrimary,
+  },
 
   // Filtros Premium
-  filtrosContainerPremium: { maxHeight: 50, marginBottom: SIZES.sm },
-  filtrosContentPremium: { paddingHorizontal: SIZES.padding, gap: SIZES.sm },
-  filtroChipPremium: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: SIZES.radiusFull, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.border },
-  filtroChipAtivoPremium: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filtroTextPremium: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
-  filtroTextAtivoPremium: { color: COLORS.white, fontWeight: '700' },
-  filtroInfoPremium: { paddingHorizontal: SIZES.padding, paddingVertical: SIZES.sm, fontSize: 13, color: COLORS.textSecondary },
+  filtrosContainerPremium: {
+    backgroundColor: COLORS.background,
+    paddingVertical: SIZES.md,
+  },
+  filtrosContentPremium: {
+    paddingHorizontal: SIZES.padding,
+    gap: SIZES.sm,
+  },
+  filtroChipPremium: {
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: COLORS.glass,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    marginRight: SIZES.sm,
+  },
+  filtroChipAtivoPremium: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filtroTextPremium: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+  },
+  filtroTextAtivoPremium: {
+    color: COLORS.white,
+  },
+  filtroInfoPremium: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.sm,
+  },
 
-  // Busca (legacy)
-  searchContainer: { padding: 15, backgroundColor: COLORS.surface },
-  searchInput: { backgroundColor: COLORS.background, borderRadius: SIZES.radiusSm, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border },
-
-  // Filtros (legacy)
-  filtrosContainer: { backgroundColor: COLORS.surface, maxHeight: 60 },
-  filtrosContent: { paddingHorizontal: 15, paddingVertical: 10, gap: 10 },
-  filtroChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.background, marginRight: 10, borderWidth: 1, borderColor: COLORS.border },
-  filtroChipAtivo: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filtroText: { fontSize: 14, color: COLORS.textSecondary },
-  filtroTextAtivo: { color: COLORS.white, fontWeight: '600' },
-  filtroInfo: { paddingHorizontal: 15, paddingVertical: 8, fontSize: 13, color: COLORS.textSecondary, backgroundColor: COLORS.surface },
-
-  // Lista de Notas
-  notasList: { flex: 1, padding: 15 },
-  notaCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
-  notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  notaEstabelecimento: { flex: 1, fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
-  notaTotal: { fontSize: 16, fontWeight: 'bold', color: COLORS.secondary },
-  notaData: { fontSize: 13, color: COLORS.textSecondary, marginTop: 5 },
-  notaItens: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
-  emptyText: { textAlign: 'center', color: COLORS.textSecondary, marginTop: 50, fontSize: 16 },
-
-  // Card de Produto (busca comparativa)
-  produtoCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  produtoIcon: { fontSize: 24, marginRight: 12 },
-  produtoInfo: { flex: 1, marginRight: 10 },
-  produtoNome: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
-  produtoMercado: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
-  produtoPreco: { alignItems: 'flex-end' },
-  produtoValor: { fontSize: 18, fontWeight: 'bold', color: COLORS.success },
-  produtoData: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
-
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: COLORS.background },
-  modalHeader: { backgroundColor: COLORS.surface, padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  modalTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold', flex: 1 },
-  editButton: { padding: 8 },
-  editButtonText: { fontSize: 20 },
-  modalEndereco: { color: COLORS.textSecondary, fontSize: 13, marginTop: 6 },
-  modalSubtitle: { color: COLORS.textMuted, fontSize: 14, marginTop: 5 },
-  cachedBadge: { color: COLORS.success, fontSize: 12, marginTop: 5 },
-  itemsList: { flex: 1, padding: 10 },
-  itemRow: { flexDirection: 'row', backgroundColor: COLORS.surface, padding: 12, marginVertical: 4, borderRadius: SIZES.radiusSm, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  itemIcon: { fontSize: 20, marginRight: 10 },
-  itemName: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
-  itemQtd: { fontSize: 14, color: COLORS.textSecondary, marginHorizontal: 10 },
-  itemValor: { fontSize: 14, fontWeight: 'bold', color: COLORS.success },
-  modalFooter: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.surface, padding: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
-  totalLabel: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary },
-  totalValue: { fontSize: 24, fontWeight: 'bold', color: COLORS.primary },
-  newScanButton: { backgroundColor: COLORS.primary, margin: 15, padding: 18, borderRadius: SIZES.radiusSm, alignItems: 'center' },
-  newScanButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
-
-  // Modal de Renomear
-  renameModalOverlay: { flex: 1, backgroundColor: 'rgba(11,12,21,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  renameModalContent: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: 20, width: '100%', maxWidth: 350, borderWidth: 1, borderColor: COLORS.border },
-  renameModalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8, color: COLORS.textPrimary },
-  renameModalSubtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 16 },
-  renameInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: SIZES.radiusSm, padding: 12, fontSize: 16, marginBottom: 20, backgroundColor: COLORS.background, color: COLORS.textPrimary },
-  renameButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  renameCancelButton: { flex: 1, padding: 12, marginRight: 8, borderRadius: SIZES.radiusSm, backgroundColor: COLORS.background, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: COLORS.border },
-  renameCancelText: { color: COLORS.textSecondary, fontWeight: '600' },
-  renameSaveButton: { flex: 1, padding: 12, marginLeft: 8, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', marginTop: 10 },
-  renameSaveText: { color: COLORS.white, fontWeight: '600' },
-
-  // Modal Premium (GlassModal)
-  modalSubtitleSmall: { fontSize: 13, color: COLORS.textSecondary, marginBottom: SIZES.md },
-  modalButtonsRow: { flexDirection: 'row', gap: SIZES.sm, marginTop: SIZES.sm },
-  modalButtonPrimary: { flex: 1, backgroundColor: COLORS.primary, padding: 14, borderRadius: SIZES.radiusSm, alignItems: 'center' },
-  modalButtonPrimaryText: { color: COLORS.white, fontWeight: '700', fontSize: 15 },
-  modalButtonSecondary: { flex: 1, backgroundColor: COLORS.surface, padding: 14, borderRadius: SIZES.radiusSm, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  modalButtonSecondaryText: { color: COLORS.textSecondary, fontWeight: '600', fontSize: 15 },
-
-  // Modal de Seleção de Categoria
-  categorySelectItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  categoryIcon: { fontSize: 24, marginRight: 12 },
-  categoryName: { fontSize: 16, color: '#333' },
-  createCategoryButton: { backgroundColor: '#4a90d9', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-  createCategoryText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  cancelButtonStandalone: { padding: 14, borderRadius: 8, backgroundColor: '#f0f0f0', alignItems: 'center', marginTop: 15 },
-
-  // Navigation Buttons
-  navButtonsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, paddingBottom: 20 },
-  navButton: { backgroundColor: 'rgba(255,255,255,0.9)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25 },
-  navButtonDashboard: { backgroundColor: 'rgba(74,144,217,0.9)' },
-  navButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
+  // Produto Cards (Busca)
+  produtoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.md,
+    marginBottom: SIZES.sm,
+    borderRadius: SIZES.radius,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.accent,
+  },
+  produtoIcon: {
+    fontSize: 24,
+    marginRight: SIZES.md,
+  },
+  produtoInfo: {
+    flex: 1,
+  },
+  produtoNome: {
+    fontSize: 15,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  produtoMercado: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+  produtoPreco: {
+    alignItems: 'flex-end',
+  },
+  produtoValor: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+  },
+  produtoData: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
 
   // Dashboard Premium
-  dashboardContainer: { flex: 1, backgroundColor: COLORS.background },
-  dashboardHeaderPremium: { paddingHorizontal: SIZES.padding, paddingTop: SIZES.lg, paddingBottom: SIZES.md },
-  dashboardTitleLarge: { fontSize: 32, fontWeight: '900', color: COLORS.textPrimary },
-  dashboardFilterScroll: { marginBottom: SIZES.md },
-  dashboardChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: SIZES.radiusFull, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.border },
-  dashboardChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  dashboardChipText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  dashboardChipTextActive: { color: COLORS.white, fontWeight: '700' },
+  dashboardFilterScroll: {
+    marginBottom: SIZES.lg,
+  },
+  dashboardChip: {
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: COLORS.glass,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  dashboardChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  dashboardChipText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+  },
+  dashboardChipTextActive: {
+    color: COLORS.white,
+  },
+  kpiCardMain: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.lg,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    ...SHADOWS.md,
+  },
+  kpiValueLarge: {
+    fontSize: SIZES.font4xl,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  kpiRowSmall: {
+    flexDirection: 'row',
+    gap: SIZES.md,
+    marginTop: SIZES.md,
+    marginBottom: SIZES.lg,
+  },
+  kpiCardSmall: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    alignItems: 'center',
+  },
+  kpiIconSmall: {
+    fontSize: 24,
+    marginBottom: SIZES.xs,
+  },
+  kpiLabelSmall: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.xs,
+  },
+  kpiValueSmall: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  chartContainerPremium: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.lg,
+    alignItems: 'center',
+  },
+  categoryRowPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.sm,
+  },
+  categoryTotal: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.accent,
+    marginTop: SIZES.xs,
+  },
+  categoryIcon: {
+    fontSize: 20,
+  },
 
-  // KPI Cards
-  kpiRow: { marginBottom: SIZES.md },
-  kpiCardMain: { backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: SIZES.lg, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  kpiLabel: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SIZES.xs },
-  kpiValueLarge: { fontSize: 36, fontWeight: '900', color: COLORS.primary },
-  kpiRowSmall: { flexDirection: 'row', gap: SIZES.md, marginBottom: SIZES.lg },
-  kpiCardSmall: { flex: 1, backgroundColor: COLORS.surface, borderRadius: SIZES.radius, padding: SIZES.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  kpiIconSmall: { fontSize: 24, marginBottom: SIZES.xs },
-  kpiLabelSmall: { fontSize: 12, color: COLORS.textMuted, marginBottom: 2 },
-  kpiValueSmall: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  // Modal Detail Premium
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editButton: {
+    padding: SIZES.sm,
+  },
+  editButtonText: {
+    fontSize: 18,
+  },
+  modalEndereco: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginTop: SIZES.xs,
+  },
+  newScanButton: {
+    backgroundColor: COLORS.glass,
+    margin: SIZES.padding,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  newScanButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontFamily: FONTS.semiBold,
+  },
 
-  // Chart
-  chartContainerPremium: { marginBottom: SIZES.lg },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SIZES.md },
+  // Rename Modal
+  renameModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.padding,
+  },
+  renameModalContent: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.lg,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  renameModalTitle: {
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SIZES.sm,
+    textAlign: 'center',
+  },
+  renameModalSubtitle: {
+    fontSize: 14,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.lg,
+    textAlign: 'center',
+  },
+  renameInput: {
+    backgroundColor: COLORS.glass,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    color: COLORS.textPrimary,
+    marginBottom: SIZES.lg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  renameButtons: {
+    flexDirection: 'row',
+    gap: SIZES.md,
+  },
+  renameCancelButton: {
+    flex: 1,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    backgroundColor: COLORS.glass,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  renameCancelText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontFamily: FONTS.semiBold,
+  },
+  renameSaveButton: {
+    flex: 1,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  renameSaveText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+  },
 
-  // Category Progress Bars
-  categoriesContainer: { gap: SIZES.sm },
-  categoryRowPremium: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, padding: SIZES.md, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border },
-  categoryIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: SIZES.md },
-  categoryIcon: { fontSize: 22 },
-  categoryInfo: { flex: 1 },
-  categoryNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  categoryName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
-  categoryPercent: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
-  progressBarTrack: { height: 8, backgroundColor: COLORS.background, borderRadius: 4, overflow: 'hidden', marginBottom: 4 },
-  progressBarFill: { height: '100%', borderRadius: 4 },
-  categoryTotal: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  // Empty State
+  emptyText: {
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SIZES.xl,
+  },
 
-  // Dashboard Legacy
-  dashboardFilterRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
-  dashboardFilterBtn: { paddingVertical: 8, paddingHorizontal: 16, marginHorizontal: 5, borderRadius: 20, backgroundColor: '#e0e0e0' },
-  dashboardFilterActive: { backgroundColor: '#4a90d9' },
-  dashboardFilterText: { fontSize: 13, color: '#666' },
-  dashboardFilterTextActive: { color: '#fff', fontWeight: '600' },
-  dashboardTotalCard: { backgroundColor: '#4a90d9', borderRadius: 16, padding: 25, alignItems: 'center', marginBottom: 20 },
-  dashboardTotalLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 16 },
-  dashboardTotalValue: { color: '#fff', fontSize: 36, fontWeight: 'bold', marginTop: 5 },
-  chartContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 10, marginBottom: 20, alignItems: 'center' },
-  dashboardSectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-  dashboardCategoryRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, marginBottom: 8, borderRadius: 12 },
-  dashboardCategoryIcon: { fontSize: 28, marginRight: 12 },
-  dashboardCategoryName: { fontSize: 14, fontWeight: '500', color: '#333', marginBottom: 4 },
-  dashboardBar: { height: 6, borderRadius: 3, minWidth: 10 },
-  dashboardCategoryValues: { alignItems: 'flex-end', marginLeft: 10 },
-  dashboardCategoryTotal: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  dashboardCategoryPercent: { fontSize: 12, color: '#888' },
+  // ===== NOVOS ESTILOS DASHBOARD ANALÍTICO =====
+  trendBadge: {
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 4,
+    borderRadius: SIZES.radiusFull,
+    marginLeft: SIZES.sm,
+  },
+  trendText: {
+    fontSize: 12,
+    fontFamily: FONTS.bold,
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SIZES.padding,
+    gap: SIZES.md,
+    marginTop: SIZES.md,
+  },
+  kpiCardNew: {
+    width: '47%', // Aproximadamente metade menos o gap
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    // borderColor será definido inline
+  },
+  kpiLabelNew: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+    marginTop: SIZES.xs,
+  },
+  kpiValueNew: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    marginTop: 4,
+  },
+  analyticSection: {
+    marginTop: SIZES.xl,
+    paddingHorizontal: SIZES.padding,
+  },
+  analyticSectionTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SIZES.md,
+  },
+  // Gráfico de Barras Horizontais
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+  },
+  barLabel: {
+    width: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  barLabelText: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  barContainer: {
+    flex: 1,
+    height: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 4,
+    marginHorizontal: SIZES.sm,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  barValue: {
+    width: 70,
+    textAlign: 'right',
+    fontSize: 12,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  // Lista de Fornecedores
+  fornecedorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  fornecedorRank: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  fornecedorRankText: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  fornecedorInfo: {
+    flex: 1,
+  },
+  fornecedorNome: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  fornecedorCompras: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+  fornecedorValor: {
+    alignItems: 'flex-end',
+  },
+  fornecedorTotal: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  fornecedorPercent: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+  // Comparativo Card
+  comparativoCard: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radius,
+    padding: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  comparativoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  comparativoLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.regular,
+  },
+  comparativoValue: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.bold,
+  },
+  comparativoVariacao: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+  },
 });
+

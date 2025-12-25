@@ -126,6 +126,23 @@ class ItemDB(Base):
         }
 
 
+class CorrecaoClassificacaoDB(Base):
+    """Modelo de correção de classificação pelo usuário (Aprendizado)."""
+    __tablename__ = "correcoes_classificacao"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("itens.id"), nullable=True) # Link para o item da nota (Rastreabilidade)
+    termo_original = Column(String(500), nullable=False)             # Ex: "BLUSA NIKE PRETA"
+    categoria_anterior_id = Column(Integer, ForeignKey("categorias.id"), nullable=True)
+    categoria_nova_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relações
+    item = relationship("ItemDB")
+    categoria_anterior = relationship("CategoriaDB", foreign_keys=[categoria_anterior_id])
+    categoria_nova = relationship("CategoriaDB", foreign_keys=[categoria_nova_id])
+
+
 # ============================================================================
 # FUNÇÕES DE ACESSO AO BANCO
 # ============================================================================
@@ -140,9 +157,6 @@ def seed_default_categorias(db: Session):
     Cria categorias padrão se a tabela estiver vazia.
     Executado na inicialização do servidor.
     """
-    # Verificar se já existem categorias
-    if db.query(CategoriaDB).count() > 0:
-        return
     
     # Categorias padrão com emojis
     defaults = [
@@ -158,14 +172,25 @@ def seed_default_categorias(db: Session):
         {"nome": "Padaria", "icone": "🥖", "cor": "#E9967A"},
         {"nome": "Pet", "icone": "🐕", "cor": "#A29BFE"},
         {"nome": "Farmácia", "icone": "💊", "cor": "#74B9FF"},
-        {"nome": "Outros", "icone": "📦", "cor": "#636E72"},
+        {"nome": "Vestuário", "icone": "👕", "cor": "#6C5CE7"},
+        {"nome": "Eletrônicos", "icone": "🖥️", "cor": "#0984E3"},
+        {"nome": "Lazer", "icone": "🎮", "cor": "#FD79A8"},
+        {"nome": "Ferramentas", "icone": "🛠️", "cor": "#636E72"},
+        {"nome": "Outros", "icone": "📦", "cor": "#B2BEC3"},
     ]
     
+    count_new = 0
     for cat_data in defaults:
-        categoria = CategoriaDB(**cat_data)
-        db.add(categoria)
+        # Verificar se existe pelo nome
+        exists = db.query(CategoriaDB).filter(CategoriaDB.nome == cat_data["nome"]).first()
+        if not exists:
+            categoria = CategoriaDB(**cat_data)
+            db.add(categoria)
+            count_new += 1
     
-    db.commit()
+    if count_new > 0:
+        db.commit()
+        print(f"✅ {count_new} novas categorias criadas.")
     print(f"✅ {len(defaults)} categorias padrão criadas.")
 
 
@@ -237,14 +262,14 @@ def create_nota(
     db.flush()  # Obter ID antes de criar itens
     
     # Criar itens com classificação automática
-    from classifier import classify_product
+    from classification_service import classify_item_smart
     
     # Cache de categorias para evitar múltiplas queries
     categoria_cache = {}
     
     for item_data in itens:
         nome_item = item_data.get("nome", "")
-        categoria_nome = classify_product(nome_item)
+        categoria_nome = classify_item_smart(db, nome_item)
         
         # Buscar categoria_id (com cache)
         if categoria_nome not in categoria_cache:

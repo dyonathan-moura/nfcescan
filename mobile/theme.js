@@ -1,37 +1,47 @@
 /**
- * Design System - NFC-e Scanner
- * Tema Dark Mode com Tipografia Archivo e Cores Neon
+ * Design System - Premium Dark
+ * Tema Escuro com Gradientes e Glassmorphism
+ * Inspirado no NodPay
  */
 
 export const COLORS = {
-    // Bases
-    background: '#0B0C15',       // Azul Quase Preto (Deep Space)
-    surface: '#1C1E2A',          // Superfície Sólida
-    surfaceGlass: 'rgba(28, 30, 42, 0.7)', // Vidro (usar com Blur)
+    // Bases - Dark Mode
+    background: '#0D0D1A',           // Deep Dark
+    backgroundSecondary: '#1A1A2E',  // Dark Blue
+    surface: 'rgba(255,255,255,0.06)', // Glass Surface
+    surfaceSolid: '#1E1E32',         // Solid Dark Surface
 
-    // Cores Principais
-    primary: '#FF6B4A',          // Laranja Coral (Ação)
-    primaryGradient: ['#FF8560', '#FF6B4A'],
+    // Cores Principais - Vibrantes
+    primary: '#6366F1',              // Indigo
+    primaryLight: '#818CF8',         // Indigo Light
+    primaryGradient: ['#6366F1', '#8B5CF6'],
 
-    secondary: '#4DA6FF',        // Azul Elétrico (Dados)
-    secondaryGradient: ['#2D7FF9', '#4DA6FF'],
+    secondary: '#8B5CF6',            // Purple
+    accent: '#00D9FF',               // Cyan Glow
+    accentGradient: ['#00D9FF', '#6366F1'],
 
-    // Textos
-    textPrimary: '#FFFFFF',
-    textSecondary: '#8F92A1',    // Cinza Azulado
-    textMuted: 'rgba(255,255,255,0.4)',
+    // Textos - Para fundo escuro
+    textPrimary: '#FFFFFF',          // White
+    textSecondary: 'rgba(255,255,255,0.7)', // White 70%
+    textMuted: 'rgba(255,255,255,0.4)',     // White 40%
 
-    // Status
-    success: '#00D09C',          // Verde Neon
-    danger: '#FF4A4A',           // Vermelho
-    warning: '#FFC107',
+    // Status - Mais vibrantes
+    success: '#10B981',              // Emerald
+    danger: '#EF4444',               // Red
+    warning: '#F59E0B',              // Amber
 
     // UI Elements
     border: 'rgba(255,255,255,0.1)',
+    borderLight: 'rgba(255,255,255,0.15)',
     white: '#FFFFFF',
-    black: '#000000',
+    black: '#0D0D1A',
 
-    // Categorias (cores padrão convertidas para dark mode)
+    // Glass Effect
+    glass: 'rgba(255,255,255,0.08)',
+    glassLight: 'rgba(255,255,255,0.12)',
+    glassBorder: 'rgba(255,255,255,0.18)',
+
+    // Categorias (cores vibrantes para dark mode)
     categories: {
         alimentacao: '#FF6B35',
         bebidas: '#4ECDC4',
@@ -45,16 +55,15 @@ export const COLORS = {
         padaria: '#E9967A',
         pet: '#A29BFE',
         farmacia: '#74B9FF',
-        outros: '#636E72',
+        outros: '#9CA3AF',
         roupas: '#A29BFE',
     }
 };
 
 export const FONTS = {
-    regular: 'Archivo_400Regular',
-    medium: 'Archivo_500Medium',
-    bold: 'Archivo_700Bold',
-    black: 'Archivo_900Black',
+    regular: 'Nunito_400Regular',
+    semiBold: 'Nunito_600SemiBold',
+    bold: 'Nunito_700Bold',
 };
 
 export const SIZES = {
@@ -96,23 +105,23 @@ export const SIZES = {
 
 export const SHADOWS = {
     sm: {
-        shadowColor: '#000',
+        shadowColor: '#6366F1',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.15,
         shadowRadius: 4,
         elevation: 2,
     },
     md: {
-        shadowColor: '#000',
+        shadowColor: '#6366F1',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,
     },
     lg: {
-        shadowColor: '#000',
+        shadowColor: '#6366F1',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.25,
         shadowRadius: 16,
         elevation: 8,
     },
@@ -122,6 +131,13 @@ export const SHADOWS = {
         shadowOpacity: 0.5,
         shadowRadius: 12,
         elevation: 8,
+    }),
+    glowSm: (color) => ({
+        shadowColor: color,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 4,
     }),
 };
 

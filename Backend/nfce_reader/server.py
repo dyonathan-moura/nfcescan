@@ -451,9 +451,23 @@ async def atualizar_categoria_item(
     if not categoria:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     
+    # Guardar categoria anterior para aprendizado
+    categoria_anterior_id = item.categoria_id
+    
     # Atualizar
     item.categoria_id = categoria_id
     db.commit()
+    
+    # Salvar aprendizado (se mudou)
+    if categoria_anterior_id and categoria_anterior_id != categoria_id:
+        from classification_service import save_correction
+        save_correction(
+            db=db, 
+            item_id=item_id, 
+            old_category_id=categoria_anterior_id, 
+            new_category_id=categoria_id, 
+            product_name=item.nome
+        )
     
     return {
         "message": "Categoria do item atualizada",
@@ -546,6 +560,167 @@ async def dashboard_resumo(
         },
         "total_periodo": round(total_periodo, 2),
         "categorias": categorias
+    }
+
+
+@app.get("/dashboard/fornecedores")
+async def dashboard_fornecedores(
+    data_inicio: str = Query(default=None, description="Data inicial (YYYY-MM-DD)"),
+    data_fim: str = Query(default=None, description="Data final (YYYY-MM-DD)"),
+    limit: int = Query(default=10, ge=1, le=50, description="Limite de fornecedores"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna gastos agregados por fornecedor (estabelecimento).
+    
+    Útil para análise de onde o usuário mais gasta.
+    """
+    from datetime import datetime
+    from sqlalchemy import func
+    
+    # Se não passou datas, usa mês atual
+    if not data_inicio:
+        hoje = datetime.now()
+        data_inicio = datetime(hoje.year, hoje.month, 1).strftime("%Y-%m-%d")
+    
+    if not data_fim:
+        hoje = datetime.now()
+        if hoje.month == 12:
+            prox_mes = datetime(hoje.year + 1, 1, 1)
+        else:
+            prox_mes = datetime(hoje.year, hoje.month + 1, 1)
+        data_fim = prox_mes.strftime("%Y-%m-%d")
+    
+    # Converter para datetime
+    try:
+        dt_inicio = datetime.strptime(data_inicio, "%Y-%m-%d")
+        dt_fim = datetime.strptime(data_fim, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato de data inválido")
+    
+    # Query: Agrupar por estabelecimento
+    resultados = db.query(
+        NotaFiscalDB.estabelecimento,
+        func.sum(NotaFiscalDB.total).label("total"),
+        func.count(NotaFiscalDB.id).label("num_compras")
+    ).filter(
+        NotaFiscalDB.data_emissao >= dt_inicio,
+        NotaFiscalDB.data_emissao < dt_fim
+    ).group_by(
+        NotaFiscalDB.estabelecimento
+    ).order_by(
+        func.sum(NotaFiscalDB.total).desc()
+    ).limit(limit).all()
+    
+    # Calcular total geral
+    total_periodo = sum(row.total or 0 for row in resultados)
+    
+    # Montar resposta
+    fornecedores = []
+    for row in resultados:
+        total_fornec = row.total or 0
+        porcentagem = (total_fornec / total_periodo * 100) if total_periodo > 0 else 0
+        fornecedores.append({
+            "nome": row.estabelecimento,
+            "total": round(total_fornec, 2),
+            "num_compras": row.num_compras,
+            "porcentagem": round(porcentagem, 1)
+        })
+    
+    return {
+        "periodo": {
+            "inicio": data_inicio,
+            "fim": data_fim
+        },
+        "total_fornecedores": len(fornecedores),
+        "total_periodo": round(total_periodo, 2),
+        "fornecedores": fornecedores
+    }
+
+
+@app.get("/dashboard/estatisticas")
+async def dashboard_estatisticas(
+    data_inicio: str = Query(default=None, description="Data inicial (YYYY-MM-DD)"),
+    data_fim: str = Query(default=None, description="Data final (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna estatísticas gerais para KPIs do dashboard.
+    
+    Inclui total, média, contagens e comparativo com período anterior.
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    # Se não passou datas, usa mês atual
+    if not data_inicio:
+        hoje = datetime.now()
+        data_inicio = datetime(hoje.year, hoje.month, 1).strftime("%Y-%m-%d")
+    
+    if not data_fim:
+        hoje = datetime.now()
+        if hoje.month == 12:
+            prox_mes = datetime(hoje.year + 1, 1, 1)
+        else:
+            prox_mes = datetime(hoje.year, hoje.month + 1, 1)
+        data_fim = prox_mes.strftime("%Y-%m-%d")
+    
+    # Converter para datetime
+    dt_inicio = datetime.strptime(data_inicio, "%Y-%m-%d")
+    dt_fim = datetime.strptime(data_fim, "%Y-%m-%d")
+    dias_periodo = (dt_fim - dt_inicio).days or 1
+    
+    # =====PERÍODO ATUAL =====
+    stats_atual = db.query(
+        func.sum(NotaFiscalDB.total).label("total"),
+        func.count(NotaFiscalDB.id).label("num_notas"),
+        func.count(func.distinct(NotaFiscalDB.estabelecimento)).label("num_fornecedores")
+    ).filter(
+        NotaFiscalDB.data_emissao >= dt_inicio,
+        NotaFiscalDB.data_emissao < dt_fim
+    ).first()
+    
+    total_atual = stats_atual.total or 0
+    num_notas = stats_atual.num_notas or 0
+    num_fornecedores = stats_atual.num_fornecedores or 0
+    media_dia = total_atual / dias_periodo if dias_periodo > 0 else 0
+    ticket_medio = total_atual / num_notas if num_notas > 0 else 0
+    
+    # ===== PERÍODO ANTERIOR (mesma duração) =====
+    dt_inicio_ant = dt_inicio - timedelta(days=dias_periodo)
+    dt_fim_ant = dt_inicio
+    
+    stats_anterior = db.query(
+        func.sum(NotaFiscalDB.total).label("total")
+    ).filter(
+        NotaFiscalDB.data_emissao >= dt_inicio_ant,
+        NotaFiscalDB.data_emissao < dt_fim_ant
+    ).first()
+    
+    total_anterior = stats_anterior.total or 0
+    
+    # Calcular variação
+    if total_anterior > 0:
+        variacao = ((total_atual - total_anterior) / total_anterior) * 100
+    else:
+        variacao = 100 if total_atual > 0 else 0
+    
+    return {
+        "periodo": {
+            "inicio": data_inicio,
+            "fim": data_fim,
+            "dias": dias_periodo
+        },
+        "total": round(total_atual, 2),
+        "media_dia": round(media_dia, 2),
+        "ticket_medio": round(ticket_medio, 2),
+        "num_notas": num_notas,
+        "num_fornecedores": num_fornecedores,
+        "comparativo": {
+            "total_anterior": round(total_anterior, 2),
+            "variacao_percentual": round(variacao, 1),
+            "tendencia": "alta" if variacao > 0 else "baixa" if variacao < 0 else "estavel"
+        }
     }
 
 

@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import GlassCard from './GlassCard';
-import { COLORS, SIZES, FONTS } from '../constants/theme';
+import Card from './Card';
+import { COLORS, SIZES, FONTS } from '../../theme';
 
 export default function TransactionItem({
     icon = '🛒',
@@ -23,7 +23,7 @@ export default function TransactionItem({
     const getValueColor = () => {
         if (valueColor) return valueColor;
         if (typeof value === 'number') {
-            return value >= 0 ? COLORS.success : COLORS.textPrimary;
+            return value >= 0 ? COLORS.success : COLORS.danger;
         }
         return COLORS.textPrimary;
     };
@@ -37,7 +37,7 @@ export default function TransactionItem({
     };
 
     const content = (
-        <GlassCard style={[styles.card, style]} noPadding variant="subtle">
+        <Card style={[styles.card, style]}>
             <View style={styles.container}>
                 {/* Icon Box */}
                 <View style={styles.iconBox}>
@@ -57,7 +57,7 @@ export default function TransactionItem({
                     {formatValue()}
                 </Text>
             </View>
-        </GlassCard>
+        </Card>
     );
 
     if (onPress) {
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: COLORS.background,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: SIZES.md,
@@ -98,17 +98,18 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: FONTS.semiBold,
         color: COLORS.textPrimary,
         marginBottom: 2,
     },
     subtitle: {
         fontSize: 12,
+        fontFamily: FONTS.regular,
         color: COLORS.textSecondary,
     },
     value: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: FONTS.bold,
         textAlign: 'right',
     },
 });
