@@ -21,7 +21,8 @@ REGRAS_CATEGORIA = {
         "vinho", "vodka", "whisky", "whiskey", "rum", "gin", "cachaça",
         "refri", "coca-cola", "coca cola", "pepsi", "fanta", "guarana",
         "suco", "nectar", "agua", "h2oh", "sprite", "schweppes",
-        "energetico", "monster", "redbull", "red bull", "gatorade"
+        "energetico", "monster", "redbull", "red bull", "gatorade",
+        "clight", "tang", "mid", "fresh", "ref ", "ref."
     ],
     
     "Limpeza": [
