@@ -33,7 +33,18 @@ CATEGORIAS_FORTES = {
     ],
     "Pet": [
         "racao", "petisco", "cachorro", "gato", "felino", "pedigree", "whiskas",
-        "royal canin", "golden", "premier", "cao", "canino"
+        "royal canin", "golden", "premier"  # Removido 'cao' pois pega 'coracao'
+    ],
+    "Açougue": [
+        "carne", "bife", "contra file", "file mignon", "maminha", "picanha",
+        "alcatra", "patinho", "acem", "costela", "linguica", "salsicha",
+        "bacon", "presunto", "mortadela", "peixe", "salmao", "tilapia",
+        "frango", "fgo", "coxa", "sobrecoxa", "asa", "coracao", "figado", "moela",
+        "paleta", "bov", "sui", "seara", "sadia", "perdigao", "aurora"
+    ],
+    "Congelados": [
+        "pizza", "hamburguer", "nuggets", "empanado", "sorvete", "picole", 
+        "acai", "cong", "congelad", "lasanha", "mac n cheese"
     ],
     "Farmácia": [
         "remedio", "medicamento", "dipirona", "paracetamol", "ibuprofeno",
@@ -56,13 +67,7 @@ CATEGORIAS_FORTES = {
 
 # Categorias "Fracas" - Dependem de contexto (ex: "Morango" pode ser fruta, suco ou iogurte)
 CATEGORIAS_FRACAS = {
-    "Açougue": [
-        "carne", "bife", "contra file", "file mignon", "maminha", "picanha",
-        "alcatra", "patinho", "acem", "costela", "linguica", "salsicha",
-        "bacon", "presunto", "mortadela", "peixe", "salmao", "tilapia",
-        "frango", "fgo", "coxa", "sobrecoxa", "asa", "coracao", "figado", "moela",
-        "paleta", "bov", "sui", "seara", "sadia", "perdigao", "aurora"
-    ],
+    # Açougue movido para FORTES
     "Hortifruti": [
         "banana", "maca", "laranja", "limao", "uva", "morango", "maracuja",
         "manga", "mamao", "melancia", "melao", "abacaxi", "kiwi", "pessego",
@@ -82,7 +87,7 @@ CATEGORIAS_FRACAS = {
         "nescau", "toddy", "molho", "catchup", "maionese", "milho", "ervilha"
     ],
     "Congelados": [
-        "pizza", "hamburguer", "nuggets", "empanado", "sorvete", "picole", "acai"
+        # Movido para FORTES
     ],
     "Casa": ["lampada", "pilha", "bateria"],
     "Vestuário": ["camiseta", "calca", "meia", "cueca", "calcinha", "tenis", "sandalia"],
