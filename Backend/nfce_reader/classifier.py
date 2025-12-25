@@ -32,7 +32,8 @@ CATEGORIAS_FORTES = {
         "absorvente", "gilete", "barbeador"
     ],
     "Pet": [
-        "racao", "pet", "cao", "cachorro", "gato", "felino", "pedigree", "whiskas"
+        "racao", "pet ", " pet", "cachorro", "gato", "felino", "pedigree", "whiskas",
+        "royal canin", "golden", "premier"
     ],
     "Farmácia": [
         "remedio", "medicamento", "dipirona", "paracetamol", "ibuprofeno",
@@ -71,7 +72,7 @@ CATEGORIAS_FRACAS = {
     "Laticínios": [
         "leite", "iogurte", "queijo", "mussarela", "prato", "minas",
         "requeijao", "manteiga", "margarina", "nata", "danone", "activia",
-        "yakult", "chandelle", "danette"
+        "yakult", "chandelle", "danette", "parmalat", "tirol"
     ],
     "Mercearia": [
         "arroz", "feijao", "macarrao", "massa", "espaguete", "lasanha",
