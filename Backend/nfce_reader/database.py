@@ -175,6 +175,8 @@ def seed_default_categorias(db: Session):
         {"nome": "Vestuário", "icone": "👕", "cor": "#6C5CE7"},
         {"nome": "Eletrônicos", "icone": "🖥️", "cor": "#0984E3"},
         {"nome": "Lazer", "icone": "🎮", "cor": "#FD79A8"},
+        {"nome": "Mercearia", "icone": "🛒", "cor": "#FFD700"},
+        {"nome": "Congelados", "icone": "🧊", "cor": "#74B9FF"},
         {"nome": "Ferramentas", "icone": "🛠️", "cor": "#636E72"},
         {"nome": "Outros", "icone": "📦", "cor": "#B2BEC3"},
     ]

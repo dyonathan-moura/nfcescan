@@ -21,7 +21,7 @@ CATEGORIAS_FORTES = {
         "pedagio", "uber", "99", "cabify"
     ],
     "Limpeza": [
-        "sabao", "detergente", "lava loucas", "amaciante", "alvejante",
+        "sabao", "detergente", "lava loucas", "lava roupa", "amaciante", "alvejante",
         "desinfetante", "agua sanitaria", "cloro", "vassoura", "rodo", 
         "mop", "pano", "esponja", "bombril", "veja", "omo", "ype", "ariel"
     ],
@@ -50,7 +50,7 @@ CATEGORIAS_FORTES = {
      "Padaria": [
         "pao", "paes", "baguete", "ciabatta", "frances",
         "bolo", "torta", "pudim", "sonho", "croissant", "panetone",
-        "biscoito", "bolacha", "wafer", "rosquinha"
+        "biscoito", "bisc", "bolacha", "wafer", "rosquinha"
     ],
 }
 
