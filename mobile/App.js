@@ -2594,7 +2594,7 @@ const styles = StyleSheet.create({
   },
   filterChipsContent: {
     paddingHorizontal: SIZES.padding,
-    paddingRight: 40,
+    paddingRight: SIZES.padding * 2,
     gap: 8,
   },
   filterChip: {
@@ -2609,9 +2609,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-    shadowColor: COLORS.primary,
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+    shadowColor: COLORS.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
