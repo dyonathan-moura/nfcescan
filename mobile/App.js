@@ -823,7 +823,7 @@ export default function App() {
   // ===== TELA DE DASHBOARD (ANALYTICS) =====
   const DashboardScreen = () => {
     const screenWidth = Dimensions.get('window').width;
-    const barColors = [COLORS.primary, COLORS.secondary, COLORS.accent, COLORS.success, '#9CA3AF'];
+    const barColors = ['#1abc9c', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6'];
 
     // Pegar top 5 categorias
     const topCategorias = dashboardData?.categorias?.slice(0, 5) || [];
@@ -3294,7 +3294,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: SIZES.padding,
     gap: SIZES.sm,
-    marginTop: SIZES.xs,
+    marginTop: SIZES.sm,
+    marginBottom: SIZES.sm,
   },
   kpiCardNew: {
     width: '47%', // Aproximadamente metade menos o gap
@@ -3317,7 +3318,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   analyticSection: {
-    marginTop: SIZES.xl,
+    marginTop: SIZES.md,
     paddingHorizontal: SIZES.padding,
   },
   analyticSectionTitle: {
