@@ -833,45 +833,37 @@ export default function App() {
       <SafeAreaView style={styles.dashboardContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header Clean Style */}
-        <View style={styles.dashHeaderClean}>
+        {/* Header com Título e Filtros na mesma linha */}
+        <View style={styles.dashHeaderRow}>
           <Text style={styles.dashTitleClean}>Análise de Gastos</Text>
-          <TouchableOpacity
-            style={styles.dashQrButton}
-            onPress={() => setActiveTab('scan')}
-          >
-            <Feather name="maximize" size={20} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-        </View>
 
-        {/* Filter Chips Horizontal */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dashFilterScroll}
-          contentContainerStyle={styles.dashFilterContent}
-        >
-          {[
-            { id: 'mes', label: 'Este Mês' },
-            { id: 'mesPassado', label: 'Mês Passado' },
-            { id: '3meses', label: '3 Meses' },
-            { id: 'ano', label: 'Este Ano' },
-          ].map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={[
-                styles.dashFilterChip,
-                dashboardFiltro === f.id && styles.dashFilterChipActive
-              ]}
-              onPress={() => setDashboardFiltro(f.id)}
-            >
-              <Text style={[
-                styles.dashFilterChipText,
-                dashboardFiltro === f.id && styles.dashFilterChipTextActive
-              ]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dashFilterInlineContent}
+          >
+            {[
+              { id: 'mes', label: 'Mês' },
+              { id: 'mesPassado', label: 'Anterior' },
+              { id: '3meses', label: '3M' },
+              { id: 'ano', label: 'Ano' },
+            ].map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={[
+                  styles.dashFilterChipSmall,
+                  dashboardFiltro === f.id && styles.dashFilterChipActive
+                ]}
+                onPress={() => setDashboardFiltro(f.id)}
+              >
+                <Text style={[
+                  styles.dashFilterChipTextSmall,
+                  dashboardFiltro === f.id && styles.dashFilterChipTextActive
+                ]}>{f.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         <ScrollView contentContainerStyle={{ paddingBottom: SIZES.xl, flexGrow: 1 }}>
           {loadingDashboard ? (
@@ -2990,6 +2982,16 @@ const styles = StyleSheet.create({
   },
 
   // ===== DASHBOARD CLEAN DESIGN =====
+  dashHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.sm,
+    paddingBottom: SIZES.sm,
+    backgroundColor: COLORS.background,
+    gap: SIZES.sm,
+  },
   dashHeaderClean: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3053,6 +3055,27 @@ const styles = StyleSheet.create({
   },
   dashFilterChipTextActive: {
     color: COLORS.white,
+  },
+  // Inline filter chips (smaller for header row)
+  dashFilterInlineContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dashFilterChipSmall: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: COLORS.glass,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  dashFilterChipTextSmall: {
+    fontSize: 11,
+    fontFamily: FONTS.bold,
+    color: COLORS.textSecondary,
   },
 
   // ===== PIE CHART SECTION =====
