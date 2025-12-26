@@ -2495,8 +2495,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.lg,
-    paddingBottom: SIZES.md,
+    paddingTop: SIZES.sm,
+    paddingBottom: SIZES.sm,
+    minHeight: 50,
   },
   historyTitleNew: {
     fontSize: 22,
