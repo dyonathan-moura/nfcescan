@@ -2592,7 +2592,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   filterChipsContainer: {
-    paddingVertical: SIZES.sm,
+    paddingVertical: SIZES.xs,
   },
   filterChipsContent: {
     paddingHorizontal: SIZES.padding,
@@ -2633,7 +2633,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.md,
+    paddingVertical: SIZES.sm,
   },
   metaText: {
     fontSize: 14,
