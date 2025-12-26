@@ -90,6 +90,7 @@ export default function App() {
   const [selectedNota, setSelectedNota] = useState(null);
   const [produtos, setProdutos] = useState([]);
   const [modoBusca, setModoBusca] = useState(false);
+  const [historyViewMode, setHistoryViewMode] = useState('notes'); // 'notes' or 'products'
 
   // Estados - Modal de Renomear
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -989,114 +990,211 @@ export default function App() {
     );
   }
 
-  // ===== TELA DE HISTÓRICO (PREMIUM) =====
+  // ===== TELA DE HISTÓRICO (REDESIGNED) =====
   const HistoryScreen = () => {
+    // Helper: ícone e cor baseado no tipo de estabelecimento
+    const getStoreStyle = (nome) => {
+      const n = nome?.toLowerCase() || '';
+      if (n.includes('mercado') || n.includes('market') || n.includes('atacado'))
+        return { icon: 'shopping-cart', bg: '#dcfce7', color: '#16a34a' };
+      if (n.includes('posto') || n.includes('shell') || n.includes('ipiranga') || n.includes('petrobras'))
+        return { icon: 'droplet', bg: '#dbeafe', color: '#2563eb' };
+      if (n.includes('restaurante') || n.includes('burger') || n.includes('lanchonete') || n.includes('mcdonald'))
+        return { icon: 'coffee', bg: '#ffedd5', color: '#ea580c' };
+      if (n.includes('farmacia') || n.includes('droga'))
+        return { icon: 'heart', bg: '#fce7f3', color: '#db2777' };
+      if (n.includes('loja') || n.includes('store') || n.includes('magazine'))
+        return { icon: 'shopping-bag', bg: '#f3e8ff', color: '#9333ea' };
+      return { icon: 'tag', bg: '#e0f2fe', color: '#0284c7' };
+    };
+
+    // Render card de nota (novo design)
+    const renderNotaCard = ({ item }) => {
+      const style = getStoreStyle(item.estabelecimento);
+      const dataFormatada = item.data_emissao
+        ? new Date(item.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+        : '';
+      const numItens = item.itens?.length || item.num_itens || 0;
+
+      return (
+        <TouchableOpacity
+          style={styles.transactionCard}
+          onPress={() => openNotaDetail(item)}
+          activeOpacity={0.95}
+        >
+          <View style={styles.transactionContent}>
+            <View style={[styles.transactionIcon, { backgroundColor: style.bg }]}>
+              <Feather name={style.icon} size={22} color={style.color} />
+            </View>
+            <View style={styles.transactionInfo}>
+              <Text style={styles.transactionName} numberOfLines={1}>{item.estabelecimento}</Text>
+              <Text style={styles.transactionMeta}>{dataFormatada} • {numItens} itens</Text>
+            </View>
+            <View style={styles.transactionValue}>
+              <Text style={styles.transactionAmount}>R$ {item.total?.toFixed(2)}</Text>
+              <View style={styles.transactionBadge}>
+                <View style={[styles.badgeDot, { backgroundColor: COLORS.primary }]} />
+                <Text style={styles.badgeText}>SCAN</Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    };
+
+    // Render card de produto (modo busca)
+    const renderProductCard = ({ item }) => (
+      <TouchableOpacity
+        style={styles.transactionCard}
+        onPress={() => openNotaFromProduto(item.nota_id)}
+        activeOpacity={0.95}
+      >
+        <View style={styles.transactionContent}>
+          <View style={[styles.transactionIcon, { backgroundColor: '#f0fdf4' }]}>
+            <Text style={{ fontSize: 20 }}>{item.categoria?.icone || '📦'}</Text>
+          </View>
+          <View style={styles.transactionInfo}>
+            <Text style={styles.transactionName} numberOfLines={1}>{item.produto}</Text>
+            <Text style={styles.transactionMeta}>{item.estabelecimento}</Text>
+          </View>
+          <View style={styles.transactionValue}>
+            <Text style={styles.transactionAmount}>R$ {item.valor_unitario?.toFixed(2)}</Text>
+            <Text style={styles.productQty}>x{item.qtd}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+
     return (
-      <SafeAreaView style={styles.historicoContainer}>
+      <SafeAreaView style={styles.historyContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header Premium */}
-        <View style={styles.historicoHeaderPremium}>
-          {/* Botão de voltar removido */}
-          <View style={{ width: 20 }} />
-          <Text style={styles.historicoTitleLarge}>Histórico</Text>
+        {/* Header Simplificado */}
+        <View style={styles.historyHeader}>
+          <View style={{ width: 48 }} />
+          <Text style={styles.historyTitle}>Histórico</Text>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => setActiveTab('scan')}
+          >
+            <Feather name="maximize" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Barra de Busca Premium */}
-        <View style={styles.searchContainerPremium}>
-          <View style={styles.searchInputWrapper}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInputPremium}
-              placeholder="Buscar mercado ou produto..."
-              placeholderTextColor={COLORS.textMuted}
-              value={busca}
-              onChangeText={setBusca}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
+        {/* Segmented Control */}
+        <View style={styles.segmentedContainer}>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[styles.segmentButton, historyViewMode === 'notes' && styles.segmentButtonActive]}
+              onPress={() => { setHistoryViewMode('notes'); setModoBusca(false); setBusca(''); }}
+            >
+              <Text style={[styles.segmentText, historyViewMode === 'notes' && styles.segmentTextActive]}>
+                Notas
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.segmentButton, historyViewMode === 'products' && styles.segmentButtonActive]}
+              onPress={() => setHistoryViewMode('products')}
+            >
+              <Text style={[styles.segmentText, historyViewMode === 'products' && styles.segmentTextActive]}>
+                Produtos
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Filtros Rápidos Premium */}
+        {/* Search Bar Moderno */}
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={20} color={COLORS.primary} style={styles.searchIconNew} />
+          <TextInput
+            style={styles.searchInputNew}
+            placeholder="Buscar mercado ou produto..."
+            placeholderTextColor={COLORS.textMuted}
+            value={busca}
+            onChangeText={setBusca}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {busca.length > 0 && (
+            <TouchableOpacity onPress={() => { setBusca(''); setModoBusca(false); }}>
+              <Feather name="x-circle" size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.filtrosContainerPremium}
-          contentContainerStyle={styles.filtrosContentPremium}
+          style={styles.filterChipsContainer}
+          contentContainerStyle={styles.filterChipsContent}
         >
           {FILTROS_DATA.map((filtro) => (
             <TouchableOpacity
               key={filtro.id}
-              style={[
-                styles.filtroChipPremium,
-                filtroAtivo === filtro.id && styles.filtroChipAtivoPremium
-              ]}
+              style={[styles.filterChip, filtroAtivo === filtro.id && styles.filterChipActive]}
               onPress={() => handleFiltroChange(filtro.id)}
             >
-              <Text style={[
-                styles.filtroTextPremium,
-                filtroAtivo === filtro.id && styles.filtroTextAtivoPremium
-              ]}>
+              <Text style={[styles.filterChipText, filtroAtivo === filtro.id && styles.filterChipTextActive]}>
                 {filtro.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Info do filtro/busca */}
-        {modoBusca ? (
-          <Text style={styles.filtroInfoPremium}>
-            🔍 {produtos.length} produto(s) encontrado(s) para "{busca}"
+        {/* Meta Text */}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaText}>
+            {modoBusca ? `${produtos.length} produto(s)` : `${notas.length} transações`}
           </Text>
-        ) : (busca || filtroAtivo !== 'todos') && (
-          <Text style={styles.filtroInfoPremium}>
-            {notas.length} resultado(s)
-            {filtroAtivo !== 'todos' ? ` • ${FILTROS_DATA.find(f => f.id === filtroAtivo)?.label}` : ''}
-          </Text>
-        )}
+          <TouchableOpacity onPress={() => setActiveTab('reports')}>
+            <Text style={styles.metaLink}>Ver Relatório</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Lista Híbrida: Produtos OU Notas */}
+        {/* Lista de Transações */}
         {loadingNotas ? (
           <SkeletonList count={5} />
-        ) : modoBusca ? (
-          // MODO BUSCA: Lista de Produtos
+        ) : historyViewMode === 'products' || modoBusca ? (
           <FlatList
             data={produtos}
-            renderItem={renderProdutoItem}
+            renderItem={renderProductCard}
             keyExtractor={(item, index) => `produto-${item.item_id}-${index}`}
-            style={styles.notasList}
-            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-            }
+            contentContainerStyle={styles.transactionsList}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             ListEmptyComponent={
               <EmptyState
                 icon="🔍"
-                title="Nenhum produto encontrado"
-                message={`Não encontramos produtos com "${busca}"`}
+                title="Busque um produto"
+                message="Digite o nome do produto para comparar preços"
               />
+            }
+            ListFooterComponent={
+              produtos.length > 0 && (
+                <Text style={styles.listEndText}>Você está em dia!</Text>
+              )
             }
           />
         ) : (
-          // MODO NORMAL: Lista de Notas
           <FlatList
             data={notas}
-            renderItem={renderNotaItem}
+            renderItem={renderNotaCard}
             keyExtractor={(item, index) => `nota-${index}`}
-            style={styles.notasList}
-            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-            }
+            contentContainerStyle={styles.transactionsList}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             ListEmptyComponent={
               <EmptyState
                 icon="📭"
                 title="Nenhuma nota ainda"
-                message="Escaneie sua primeira nota fiscal para ver o histórico aqui."
+                message="Escaneie sua primeira nota fiscal"
                 buttonTitle="Escanear Agora"
-                onButtonPress={() => setShowHistorico(false)}
+                onButtonPress={() => setActiveTab('scan')}
               />
+            }
+            ListFooterComponent={
+              notas.length > 0 && (
+                <Text style={styles.listEndText}>Você está em dia!</Text>
+              )
             }
           />
         )}
@@ -1953,6 +2051,226 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.sm,
+  },
+
+  // ===== NEW HISTORY SCREEN STYLES =====
+  historyContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.lg,
+    paddingBottom: SIZES.sm,
+  },
+  historyTitle: {
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
+  },
+  headerIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  segmentedContainer: {
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.sm,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    padding: 4,
+    height: 48,
+  },
+  segmentButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: SIZES.radius,
+  },
+  segmentButtonActive: {
+    backgroundColor: COLORS.surfaceSolid,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  segmentTextActive: {
+    color: COLORS.primary,
+    fontFamily: FONTS.bold,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    marginHorizontal: SIZES.padding,
+    marginVertical: SIZES.sm,
+    paddingHorizontal: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    height: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  searchIconNew: {
+    marginRight: SIZES.sm,
+  },
+  searchInputNew: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: FONTS.medium,
+    color: COLORS.textPrimary,
+  },
+  filterChipsContainer: {
+    paddingVertical: SIZES.sm,
+  },
+  filterChipsContent: {
+    paddingHorizontal: SIZES.padding,
+    gap: SIZES.sm,
+  },
+  filterChip: {
+    height: 36,
+    paddingHorizontal: SIZES.lg,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: COLORS.surfaceSolid,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.sm,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+  },
+  filterChipTextActive: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.md,
+  },
+  metaText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+  },
+  metaLink: {
+    fontSize: 13,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  transactionsList: {
+    paddingHorizontal: SIZES.padding,
+    paddingBottom: 100,
+    flexGrow: 1,
+  },
+  transactionCard: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  transactionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionName: {
+    fontSize: 15,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  transactionMeta: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+  transactionValue: {
+    alignItems: 'flex-end',
+  },
+  transactionAmount: {
+    fontSize: 17,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  transactionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+    letterSpacing: 0.5,
+  },
+  productQty: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  listEndText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    paddingVertical: SIZES.lg,
   },
 
   // Produto Cards (Busca)
