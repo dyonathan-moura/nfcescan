@@ -43,7 +43,8 @@ Base = declarative_base()
 
 
 # =============================================================================
-# MIGRAÇÃO AUTOMÁTICA - Adicionar colunas novas se não existirem
+# MIGRAÇÃO - Função disponível mas NÃO executada automaticamente
+# Use: python -c "from nfce_reader.database import run_migrations; run_migrations()"
 # =============================================================================
 def run_migrations():
     """Adiciona colunas novas ao banco de dados se não existirem."""
@@ -70,8 +71,8 @@ def run_migrations():
     except Exception as e:
         print(f"⚠️ Migração: erro ao verificar/adicionar coluna tipo - {e}")
 
-# Rodar migrações na inicialização
-run_migrations()
+# NÃO rodar automaticamente na inicialização para evitar conflitos de workers
+# A migração já foi executada com sucesso anteriormente
 
 
 # ============================================================================
