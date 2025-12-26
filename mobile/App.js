@@ -924,9 +924,6 @@ export default function App() {
               <View style={styles.pieChartSection}>
                 <View style={styles.pieChartContainer}>
                   <View style={styles.pieChartOuter}>
-                    {/* Simulated Pie Chart with colored segments */}
-                    <View style={[styles.pieSegment, { backgroundColor: COLORS.primary, transform: [{ rotate: '0deg' }] }]} />
-                    <View style={[styles.pieSegment, { backgroundColor: '#3498db', transform: [{ rotate: '45%' }] }]} />
                     <View style={styles.pieChartInner}>
                       <Text style={styles.pieTopLabel}>Top Cat.</Text>
                       <Text style={styles.pieTopValue}>{topCategorias[0]?.nome || 'Sem dados'}</Text>
