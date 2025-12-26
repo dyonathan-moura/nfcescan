@@ -249,8 +249,6 @@ export default function App() {
 
   // Buscar produtos pelo nome (busca comparativa)
   const fetchProdutos = useCallback(async (termo) => {
-    console.log('fetchProdutos chamado com:', termo);
-
     if (!termo || termo.trim().length < 2) {
       setProdutos([]);
       setModoBusca(false);
@@ -262,16 +260,12 @@ export default function App() {
 
     try {
       const url = `${API_URL}/itens/busca?q=${encodeURIComponent(termo.trim())}`;
-      console.log('Buscando URL:', url);
       const response = await axios.get(url, { timeout: 10000 });
-      console.log('Resposta:', response.data);
       const itens = response.data.itens || [];
       setProdutos(itens);
-      setModoBusca(true);  // Modo busca de produtos
-      Alert.alert('Debug', `Encontrados ${itens.length} produtos para "${termo}"`);
+      setModoBusca(true);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
-      Alert.alert('Erro', 'Falha ao buscar: ' + error.message);
       setProdutos([]);
     } finally {
       setIsSearching(false);

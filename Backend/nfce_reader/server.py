@@ -299,6 +299,18 @@ async def buscar_itens(
     para facilitar comparação de preços.
     """
     from database import ItemDB, CategoriaDB
+    from sqlalchemy import case, func
+    
+    # Normalizar termo para busca (minúsculo)
+    termo_lower = q.lower()
+    
+    # Criar expressão de relevância:
+    # 0 = começa com o termo (mais relevante)
+    # 1 = contém o termo no meio (menos relevante)
+    relevancia = case(
+        (func.lower(ItemDB.nome).like(f"{termo_lower}%"), 0),  # Começa com
+        else_=1  # Contém no meio
+    )
     
     # JOIN Item + NotaFiscal + Categoria
     results = db.query(
@@ -319,7 +331,8 @@ async def buscar_itens(
     ).filter(
         ItemDB.nome.ilike(f"%{q}%")
     ).order_by(
-        NotaFiscalDB.data_emissao.desc()
+        relevancia,           # Primeiro: por relevância (0=começa com, 1=contém)
+        ItemDB.nome.asc()     # Desempate: ordem alfabética
     ).limit(limit).all()
     
     # Formatar resposta
