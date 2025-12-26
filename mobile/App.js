@@ -920,36 +920,79 @@ export default function App() {
                 </View>
               </View>
 
-              {/* ===== TOP CATEGORIAS (Barras Horizontais) ===== */}
+              {/* ===== PIE CHART CIRCULAR ===== */}
+              <View style={styles.pieChartSection}>
+                <View style={styles.pieChartContainer}>
+                  <View style={styles.pieChartOuter}>
+                    {/* Simulated Pie Chart with colored segments */}
+                    <View style={[styles.pieSegment, { backgroundColor: COLORS.primary, transform: [{ rotate: '0deg' }] }]} />
+                    <View style={[styles.pieSegment, { backgroundColor: '#3498db', transform: [{ rotate: '45%' }] }]} />
+                    <View style={styles.pieChartInner}>
+                      <Text style={styles.pieTopLabel}>Top Cat.</Text>
+                      <Text style={styles.pieTopValue}>{topCategorias[0]?.nome || 'Sem dados'}</Text>
+                    </View>
+                  </View>
+
+                  {/* Legend */}
+                  <View style={styles.pieLegend}>
+                    {topCategorias.slice(0, 4).map((cat, index) => (
+                      <View key={cat.id} style={styles.pieLegendItem}>
+                        <View style={[styles.pieLegendDot, { backgroundColor: barColors[index % barColors.length] }]} />
+                        <Text style={styles.pieLegendText}>{cat.nome}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* ===== CATEGORIAS COM PROGRESS BARS ===== */}
               <View style={styles.analyticSection}>
-                <Text style={styles.analyticSectionTitle}>📊 Top 5 Categorias</Text>
+                <View style={styles.categoriesHeader}>
+                  <Text style={styles.analyticSectionTitleClean}>Categorias</Text>
+                  <TouchableOpacity>
+                    <Text style={styles.viewAllLink}>Ver todas</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {topCategorias.map((cat, index) => {
-                  const barWidth = (cat.total / maxCatValue) * 100;
+                  const percentage = statsData?.total > 0
+                    ? Math.round((cat.total / statsData.total) * 100)
+                    : 0;
+                  const catColor = barColors[index % barColors.length];
+
                   return (
                     <TouchableOpacity
                       key={cat.id}
-                      style={styles.barRow}
+                      style={styles.categoryCardNew}
                       onPress={() => handleCategoryDrillDown(cat)}
-                      activeOpacity={0.7}
+                      activeOpacity={0.95}
                     >
-                      <View style={styles.barLabel}>
-                        <CategoryIcon category={cat.nome} size={24} />
-                        <Text style={styles.barLabelText} numberOfLines={1}>{cat.nome}</Text>
+                      <View style={styles.categoryCardContent}>
+                        {/* Icon Circle */}
+                        <View style={[styles.categoryIconCircle, { backgroundColor: catColor + '20' }]}>
+                          <CategoryIcon category={cat.nome} size={24} color={catColor} />
+                        </View>
+
+                        {/* Info + Progress */}
+                        <View style={styles.categoryCardInfo}>
+                          <View style={styles.categoryCardRow}>
+                            <Text style={styles.categoryCardName}>{cat.nome}</Text>
+                            <Text style={styles.categoryCardValue}>R$ {cat.total.toFixed(2)}</Text>
+                          </View>
+
+                          {/* Progress Bar */}
+                          <View style={styles.categoryProgressBg}>
+                            <View
+                              style={[
+                                styles.categoryProgressFill,
+                                { width: `${percentage}%`, backgroundColor: catColor }
+                              ]}
+                            />
+                          </View>
+
+                          <Text style={styles.categoryPercentText}>{percentage}% do orçamento</Text>
+                        </View>
                       </View>
-                      <View style={styles.barContainer}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            {
-                              width: `${barWidth}%`,
-                              backgroundColor: barColors[index % barColors.length]
-                            }
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.barValue}>R$ {cat.total.toFixed(0)}</Text>
-                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   );
                 })}
@@ -3013,6 +3056,155 @@ const styles = StyleSheet.create({
   },
   dashFilterChipTextActive: {
     color: COLORS.white,
+  },
+
+  // ===== PIE CHART SECTION =====
+  pieChartSection: {
+    paddingHorizontal: SIZES.padding,
+    marginVertical: SIZES.md,
+  },
+  pieChartContainer: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  pieChartOuter: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  pieChartInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.surfaceSolid,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pieTopLabel: {
+    fontSize: 11,
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  pieTopValue: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginTop: 4,
+  },
+  pieLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: SIZES.lg,
+    gap: SIZES.md,
+  },
+  pieLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pieLegendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  pieLegendText: {
+    fontSize: 12,
+    fontFamily: FONTS.bold,
+    color: COLORS.textSecondary,
+  },
+
+  // ===== CATEGORIES HEADER =====
+  categoriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+  },
+  analyticSectionTitleClean: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  viewAllLink: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+
+  // ===== CATEGORY CARDS NEW =====
+  categoryCardNew: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryCardContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SIZES.md,
+  },
+  categoryIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryCardInfo: {
+    flex: 1,
+  },
+  categoryCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryCardName: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  categoryCardValue: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  categoryProgressBg: {
+    height: 8,
+    backgroundColor: COLORS.glass,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  categoryProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  categoryPercentText: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
   },
 
   // Drill-Down Modal Styles
