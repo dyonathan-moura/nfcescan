@@ -217,6 +217,35 @@ export default function App() {
     }
   }, []);
 
+  // Helper: Calcula datas baseado no filtro selecionado
+  const getDashboardDates = () => {
+    const hoje = new Date();
+    let dataInicio, dataFim;
+
+    if (dashboardFiltro === 'mes') {
+      dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+    } else if (dashboardFiltro === 'mesPassado') {
+      dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      dataFim = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    } else if (dashboardFiltro === '3meses') {
+      dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+      dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+    } else if (dashboardFiltro === 'ano') {
+      dataInicio = new Date(hoje.getFullYear(), 0, 1);
+      dataFim = new Date(hoje.getFullYear() + 1, 0, 1);
+    } else {
+      // Default: este mês
+      dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+    }
+
+    return {
+      dataInicio: dataInicio.toISOString().split('T')[0],
+      dataFim: dataFim.toISOString().split('T')[0]
+    };
+  };
+
   // Buscar dados do dashboard
   const fetchDashboard = useCallback(async (filtro = 'mes') => {
     setLoadingDashboard(true);
