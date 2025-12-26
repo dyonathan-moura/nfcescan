@@ -2593,6 +2593,7 @@ const styles = StyleSheet.create({
   },
   filterChipsContainer: {
     paddingVertical: SIZES.xs,
+    minHeight: 44,
   },
   filterChipsContent: {
     paddingHorizontal: SIZES.padding,
