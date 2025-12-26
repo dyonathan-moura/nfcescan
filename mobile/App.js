@@ -833,55 +833,47 @@ export default function App() {
       <SafeAreaView style={styles.dashboardContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header com padding extra para status bar */}
-        <View style={[styles.dashboardHeaderPremium, { paddingTop: SIZES.lg }]}>
-          {/* Placeholder para balancear layout */}
-          <View style={{ width: 60 }} />
-          <Text style={styles.dashboardTitleLarge}>Análise de Gastos</Text>
-          {/* Badge de tendência - só mostra se tiver dados válidos do período anterior */}
-          {statsData?.comparativo?.tendencia &&
-            statsData.comparativo.total_anterior > 0 &&
-            statsData.comparativo.variacao_percentual !== 100 && (
-              <View style={[
-                styles.trendBadge,
-                { backgroundColor: statsData.comparativo.tendencia === 'alta' ? COLORS.danger + '30' : COLORS.success + '30' }
-              ]}>
-                <Text style={[
-                  styles.trendText,
-                  { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
-                ]}>
-                  {statsData.comparativo.tendencia === 'alta' ? '↑' : '↓'} {Math.abs(statsData.comparativo.variacao_percentual)}%
-                </Text>
-              </View>
-            )}
-          {/* Placeholder se não houver badge */}
-          {(!statsData?.comparativo?.tendencia ||
-            statsData?.comparativo?.total_anterior === 0 ||
-            statsData?.comparativo?.variacao_percentual === 100) && (
-              <View style={{ width: 60 }} />
-            )}
+        {/* Header Clean Style */}
+        <View style={styles.dashHeaderClean}>
+          <Text style={styles.dashTitleClean}>Análise de Gastos</Text>
+          <TouchableOpacity
+            style={styles.dashQrButton}
+            onPress={() => setActiveTab('scan')}
+          >
+            <Feather name="maximize" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SIZES.xl }}>
-          {/* Filtro Dropdown */}
-          <View style={styles.filterDropdownContainer}>
+        {/* Filter Chips Horizontal */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.dashFilterScroll}
+          contentContainerStyle={styles.dashFilterContent}
+        >
+          {[
+            { id: 'mes', label: 'Este Mês' },
+            { id: 'mesPassado', label: 'Mês Passado' },
+            { id: '3meses', label: '3 Meses' },
+            { id: 'ano', label: 'Este Ano' },
+          ].map((f) => (
             <TouchableOpacity
-              style={styles.filterDropdownButton}
-              onPress={() => setShowFilterModal(true)}
+              key={f.id}
+              style={[
+                styles.dashFilterChip,
+                dashboardFiltro === f.id && styles.dashFilterChipActive
+              ]}
+              onPress={() => setDashboardFiltro(f.id)}
             >
-              <Feather name="filter" size={16} color={COLORS.textSecondary} />
-              <Text style={styles.filterDropdownText}>
-                {[
-                  { id: 'mes', label: 'Este Mês' },
-                  { id: 'mesPassado', label: 'Mês Passado' },
-                  { id: '3meses', label: '3 Meses' },
-                  { id: 'ano', label: 'Este Ano' },
-                ].find(f => f.id === dashboardFiltro)?.label || 'Filtrar'}
-              </Text>
-              <Feather name="chevron-down" size={16} color={COLORS.textSecondary} />
+              <Text style={[
+                styles.dashFilterChipText,
+                dashboardFiltro === f.id && styles.dashFilterChipTextActive
+              ]}>{f.label}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
+        </ScrollView>
 
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SIZES.xl }}>
           {loadingDashboard ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>
               <LottieAnimation name="loading" size={100} />
@@ -2956,6 +2948,73 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontFamily: FONTS.bold,
   },
+
+  // ===== DASHBOARD CLEAN DESIGN =====
+  dashHeaderClean: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.lg,
+    paddingBottom: SIZES.md,
+    backgroundColor: COLORS.background,
+  },
+  dashTitleClean: {
+    fontSize: 24,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+  },
+  dashQrButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceSolid,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  dashFilterScroll: {
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.sm,
+  },
+  dashFilterContent: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    paddingRight: SIZES.padding,
+  },
+  dashFilterChip: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: COLORS.surfaceSolid,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  dashFilterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dashFilterChipText: {
+    fontSize: 13,
+    fontFamily: FONTS.bold,
+    color: COLORS.textSecondary,
+  },
+  dashFilterChipTextActive: {
+    color: COLORS.white,
+  },
+
   // Drill-Down Modal Styles
   drillDownContainer: {
     flex: 1,
