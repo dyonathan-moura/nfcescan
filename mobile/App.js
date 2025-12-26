@@ -80,22 +80,28 @@ const SearchInput = React.memo(({ onSearch, onClear, placeholder }) => {
     <View style={{
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#1a2c29',
+      backgroundColor: '#1b2e2b',
       marginHorizontal: 16,
-      marginVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      height: 48,
+      marginVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      height: 44,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
     }}>
-      <Feather name="search" size={20} color="#1abc9c" style={{ marginRight: 8 }} />
+      <Feather name="search" size={18} color="#888" style={{ marginRight: 10 }} />
       <TextInput
         style={{
           flex: 1,
-          fontSize: 15,
+          fontSize: 14,
           color: '#f0f0f0',
+          fontWeight: '500',
         }}
-        placeholder={placeholder || "Buscar produto..."}
-        placeholderTextColor="#666"
+        placeholder={placeholder || "Buscar..."}
+        placeholderTextColor="#888"
         value={localValue}
         onChangeText={setLocalValue}
         onSubmitEditing={handleSubmit}
@@ -104,16 +110,8 @@ const SearchInput = React.memo(({ onSearch, onClear, placeholder }) => {
         blurOnSubmit={false}
       />
       {localValue.length > 0 && (
-        <TouchableOpacity onPress={handleClear} style={{ padding: 4 }}>
-          <Feather name="x-circle" size={20} color="#666" />
-        </TouchableOpacity>
-      )}
-      {localValue.length >= 2 && (
-        <TouchableOpacity
-          onPress={handleSubmit}
-          style={{ padding: 8, backgroundColor: '#1abc9c', borderRadius: 8, marginLeft: 8 }}
-        >
-          <Feather name="search" size={18} color="#fff" />
+        <TouchableOpacity onPress={handleClear} style={{ padding: 6 }}>
+          <Feather name="x" size={18} color="#888" />
         </TouchableOpacity>
       )}
     </View>
@@ -179,6 +177,16 @@ export default function App() {
   const [drillDownData, setDrillDownData] = useState(null); // Dados do drill-down (itens)
   const [drillDownType, setDrillDownType] = useState(null); // 'categoria' ou 'fornecedor'
   const [loadingDrillDown, setLoadingDrillDown] = useState(false);
+
+  // Estados - Lançamento Manual
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEstabelecimento, setManualEstabelecimento] = useState('');
+  const [manualItens, setManualItens] = useState([]);
+  const [manualItemNome, setManualItemNome] = useState('');
+  const [manualItemQtd, setManualItemQtd] = useState('1');
+  const [manualItemValor, setManualItemValor] = useState('');
+  const [manualItemCategoria, setManualItemCategoria] = useState(null);
+  const [savingManual, setSavingManual] = useState(false);
 
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -281,6 +289,94 @@ export default function App() {
       console.error('Erro ao buscar categorias:', error);
     }
   }, []);
+
+  // Salvar lançamento manual
+  const saveManualEntry = useCallback(async () => {
+    if (manualItens.length === 0) {
+      Alert.alert('Atenção', 'Adicione pelo menos um item');
+      return;
+    }
+
+    setSavingManual(true);
+
+    try {
+      const payload = {
+        estabelecimento: manualEstabelecimento || 'Lançamento Manual',
+        data_emissao: new Date().toISOString().split('T')[0],
+        itens: manualItens.map(item => ({
+          nome: item.nome,
+          qtd: item.qtd,
+          valor: item.valor,
+          categoria_id: item.categoria_id
+        }))
+      };
+
+      const response = await axios.post(`${API_URL}/notas/manual`, payload);
+
+      if (response.data.success) {
+        Alert.alert(
+          'Sucesso! ✅',
+          `Lançamento criado com ${response.data.num_itens} item(s)\nTotal: R$ ${response.data.total.toFixed(2)}`,
+          [{
+            text: 'OK', onPress: () => {
+              // Resetar formulário
+              setManualEstabelecimento('');
+              setManualItens([]);
+              setManualItemNome('');
+              setManualItemQtd('1');
+              setManualItemValor('');
+              setManualItemCategoria(null);
+              setShowManualEntry(false);
+              // Atualizar lista de notas
+              fetchNotas('', filtroAtivo);
+            }
+          }]
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      Alert.alert('Erro', 'Falha ao salvar lançamento: ' + (error.response?.data?.detail || error.message));
+    } finally {
+      setSavingManual(false);
+    }
+  }, [manualEstabelecimento, manualItens, filtroAtivo, fetchNotas]);
+
+  // Adicionar item ao lançamento manual
+  const addManualItem = () => {
+    if (!manualItemNome.trim()) {
+      Alert.alert('Atenção', 'Informe o nome do produto');
+      return;
+    }
+    if (!manualItemValor || parseFloat(manualItemValor.replace(',', '.')) <= 0) {
+      Alert.alert('Atenção', 'Informe um valor válido');
+      return;
+    }
+    if (!manualItemCategoria) {
+      Alert.alert('Atenção', 'Selecione uma categoria');
+      return;
+    }
+
+    const novoItem = {
+      id: Date.now(),
+      nome: manualItemNome.trim().toUpperCase(),
+      qtd: parseFloat(manualItemQtd.replace(',', '.')) || 1,
+      valor: parseFloat(manualItemValor.replace(',', '.')),
+      categoria_id: manualItemCategoria.id,
+      categoria: manualItemCategoria
+    };
+
+    setManualItens([...manualItens, novoItem]);
+    setManualItemNome('');
+    setManualItemQtd('1');
+    setManualItemValor('');
+    setManualItemCategoria(null);
+  };
+
+  // Remover item do lançamento manual
+  const removeManualItem = (itemId) => {
+    setManualItens(manualItens.filter(i => i.id !== itemId));
+  };
+
 
   // Helper: Calcula datas baseado no filtro selecionado
   const getDashboardDates = () => {
@@ -1083,6 +1179,11 @@ export default function App() {
         : '';
       const numItens = item.itens?.length || item.num_itens || 0;
 
+      // Formatar nome: apenas 2 primeiras palavras em MAIÚSCULA
+      const nomeFormatado = item.estabelecimento
+        ? item.estabelecimento.split(' ').slice(0, 2).join(' ').toUpperCase()
+        : '';
+
       return (
         <TouchableOpacity
           style={styles.transactionCard}
@@ -1094,7 +1195,7 @@ export default function App() {
               <Feather name={style.icon} size={22} color={style.color} />
             </View>
             <View style={styles.transactionInfo}>
-              <Text style={styles.transactionName} numberOfLines={1}>{item.estabelecimento}</Text>
+              <Text style={styles.transactionName} numberOfLines={1}>{nomeFormatado}</Text>
               <Text style={styles.transactionMeta}>{dataFormatada} • {numItens} itens</Text>
             </View>
             <View style={styles.transactionValue}>
@@ -1136,44 +1237,57 @@ export default function App() {
       <SafeAreaView style={styles.historyContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header Simplificado */}
-        <View style={styles.historyHeader}>
-          <View style={{ width: 48 }} />
-          <Text style={styles.historyTitle}>Histórico</Text>
-          <View style={{ width: 48 }} />
-        </View>
-
-        {/* Segmented Control */}
-        <View style={styles.segmentedContainer}>
-          <View style={styles.segmentedControl}>
+        {/* Header - Title Left, Segmented Right */}
+        <View style={styles.historyHeaderNew}>
+          <Text style={styles.historyTitleNew}>Histórico</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {/* Botão Lançamento Manual */}
             <TouchableOpacity
-              style={[styles.segmentButton, historyViewMode === 'notes' && styles.segmentButtonActive]}
-              onPress={() => { setHistoryViewMode('notes'); setModoBusca(false); setBusca(''); }}
+              onPress={() => { fetchCategorias(); setShowManualEntry(true); }}
+              style={{ padding: 8, backgroundColor: 'rgba(26,188,156,0.15)', borderRadius: 8 }}
             >
-              <Text style={[styles.segmentText, historyViewMode === 'notes' && styles.segmentTextActive]}>
-                Notas
-              </Text>
+              <Feather name="edit-3" size={18} color={COLORS.primary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.segmentButton, historyViewMode === 'products' && styles.segmentButtonActive]}
-              onPress={() => { setHistoryViewMode('products'); setModoBusca(true); }}
-            >
-              <Text style={[styles.segmentText, historyViewMode === 'products' && styles.segmentTextActive]}>
-                Produtos
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.segmentedControlNew}>
+              <TouchableOpacity
+                style={[styles.segmentBtnNew, historyViewMode === 'notes' && styles.segmentBtnActiveNew]}
+                onPress={() => { setHistoryViewMode('notes'); setModoBusca(false); setBusca(''); }}
+              >
+                <Text style={[styles.segmentTxtNew, historyViewMode === 'notes' && styles.segmentTxtActiveNew]}>
+                  Notas
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentBtnNew, historyViewMode === 'products' && styles.segmentBtnActiveNew]}
+                onPress={() => { setHistoryViewMode('products'); setModoBusca(true); }}
+              >
+                <Text style={[styles.segmentTxtNew, historyViewMode === 'products' && styles.segmentTxtActiveNew]}>
+                  Produtos
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        {/* Search Bar com Estado Local (evita perda de foco) */}
+        {/* Search Bar Contextual - busca notas ou produtos */}
         <SearchInput
-          placeholder="Buscar produto..."
+          placeholder={historyViewMode === 'notes' ? "Buscar estabelecimento..." : "Buscar produtos..."}
           onSearch={(termo) => {
-            fetchProdutos(termo);
+            if (historyViewMode === 'notes') {
+              // Buscar notas pelo nome do estabelecimento
+              fetchNotas(termo, filtroAtivo);
+            } else {
+              // Buscar produtos pelo nome
+              fetchProdutos(termo);
+            }
           }}
           onClear={() => {
-            setModoBusca(false);
-            setProdutos([]);
+            if (historyViewMode === 'notes') {
+              fetchNotas('', filtroAtivo);
+            } else {
+              setModoBusca(false);
+              setProdutos([]);
+            }
           }}
         />
 
@@ -1554,6 +1668,163 @@ export default function App() {
           <Text style={[styles.navLabel, activeTab === 'reports' && styles.navLabelActive]}>Relatórios</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ============= MODAL DE LANÇAMENTO MANUAL ============= */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showManualEntry}
+        onRequestClose={() => setShowManualEntry(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+          {/* Header */}
+          <View style={styles.manualEntryHeader}>
+            <TouchableOpacity onPress={() => setShowManualEntry(false)} style={{ padding: 8 }}>
+              <Feather name="x" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.manualEntryTitle}>Lançamento Manual</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Campo Estabelecimento */}
+            <View style={styles.manualInputGroup}>
+              <Text style={styles.manualLabel}>Estabelecimento (opcional)</Text>
+              <TextInput
+                style={styles.manualInput}
+                placeholder="Ex: Feira, Padaria..."
+                placeholderTextColor={COLORS.textMuted}
+                value={manualEstabelecimento}
+                onChangeText={setManualEstabelecimento}
+              />
+            </View>
+
+            {/* Separador */}
+            <View style={styles.manualSeparator}>
+              <Text style={styles.manualSectionTitle}>➕ Adicionar Item</Text>
+            </View>
+
+            {/* Campos do Item */}
+            <View style={styles.manualInputGroup}>
+              <Text style={styles.manualLabel}>Nome do Produto *</Text>
+              <TextInput
+                style={styles.manualInput}
+                placeholder="Ex: Pão francês, Coca-Cola..."
+                placeholderTextColor={COLORS.textMuted}
+                value={manualItemNome}
+                onChangeText={setManualItemNome}
+                autoCapitalize="characters"
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={[styles.manualInputGroup, { flex: 1 }]}>
+                <Text style={styles.manualLabel}>Qtd</Text>
+                <TextInput
+                  style={styles.manualInput}
+                  placeholder="1"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={manualItemQtd}
+                  onChangeText={setManualItemQtd}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={[styles.manualInputGroup, { flex: 2 }]}>
+                <Text style={styles.manualLabel}>Valor (R$) *</Text>
+                <TextInput
+                  style={styles.manualInput}
+                  placeholder="0,00"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={manualItemValor}
+                  onChangeText={setManualItemValor}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            {/* Seletor de Categoria */}
+            <View style={styles.manualInputGroup}>
+              <Text style={styles.manualLabel}>Categoria *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                {categorias.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.manualCategoryChip,
+                      manualItemCategoria?.id === cat.id && styles.manualCategoryChipActive
+                    ]}
+                    onPress={() => setManualItemCategoria(cat)}
+                  >
+                    <Text style={{ fontSize: 18 }}>{cat.icone}</Text>
+                    <Text style={[
+                      styles.manualCategoryName,
+                      manualItemCategoria?.id === cat.id && { color: COLORS.primary }
+                    ]}>{cat.nome}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Botão Adicionar Item */}
+            <TouchableOpacity style={styles.manualAddButton} onPress={addManualItem}>
+              <Feather name="plus-circle" size={20} color={COLORS.white} />
+              <Text style={styles.manualAddButtonText}>Adicionar Item</Text>
+            </TouchableOpacity>
+
+            {/* Lista de Itens */}
+            {manualItens.length > 0 && (
+              <>
+                <View style={styles.manualSeparator}>
+                  <Text style={styles.manualSectionTitle}>📦 Itens ({manualItens.length})</Text>
+                </View>
+
+                {manualItens.map((item) => (
+                  <View key={item.id} style={styles.manualItemCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                      <Text style={{ fontSize: 22, marginRight: 12 }}>{item.categoria?.icone || '📦'}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.manualItemName}>{item.nome}</Text>
+                        <Text style={styles.manualItemDetails}>{item.qtd}x • R$ {item.valor.toFixed(2)}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity onPress={() => removeManualItem(item.id)}>
+                      <Feather name="trash-2" size={18} color="#e74c3c" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                {/* Total */}
+                <View style={styles.manualTotalRow}>
+                  <Text style={styles.manualTotalLabel}>TOTAL</Text>
+                  <Text style={styles.manualTotalValue}>
+                    R$ {manualItens.reduce((sum, i) => sum + (i.qtd * i.valor), 0).toFixed(2)}
+                  </Text>
+                </View>
+              </>
+            )}
+          </ScrollView>
+
+          {/* Botão Salvar */}
+          {manualItens.length > 0 && (
+            <View style={styles.manualFooter}>
+              <TouchableOpacity style={styles.manualSaveButton} onPress={saveManualEntry} disabled={savingManual}>
+                {savingManual ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <>
+                    <Feather name="check-circle" size={20} color={COLORS.white} />
+                    <Text style={styles.manualSaveButtonText}>Salvar Lançamento</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -2114,6 +2385,43 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     letterSpacing: -0.3,
   },
+  // NEW: Header com título à esquerda e controls à direita
+  historyHeaderNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    paddingTop: SIZES.lg,
+    paddingBottom: SIZES.md,
+  },
+  historyTitleNew: {
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+  },
+  segmentedControlNew: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: SIZES.radius,
+    padding: 4,
+  },
+  segmentBtnNew: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: SIZES.radius - 2,
+  },
+  segmentBtnActiveNew: {
+    backgroundColor: COLORS.surfaceSolid,
+  },
+  segmentTxtNew: {
+    fontSize: 12,
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+  },
+  segmentTxtActiveNew: {
+    color: COLORS.primary,
+  },
   headerIconButton: {
     width: 48,
     height: 48,
@@ -2184,18 +2492,19 @@ const styles = StyleSheet.create({
   },
   filterChipsContent: {
     paddingHorizontal: SIZES.padding,
-    gap: SIZES.sm,
+    paddingRight: 40,
+    gap: 8,
   },
   filterChip: {
-    height: 36,
-    paddingHorizontal: SIZES.lg,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.surfaceSolid,
+    height: 32,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#1b2e2b',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SIZES.sm,
+    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: COLORS.primary,
@@ -2946,11 +3255,160 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary, // Laranja
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFF',
+  },
+
+  // ===== MANUAL ENTRY STYLES =====
+  manualEntryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  manualEntryTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  manualInputGroup: {
+    marginBottom: 16,
+  },
+  manualLabel: {
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+  },
+  manualInput: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  manualSeparator: {
+    marginTop: 8,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  manualSectionTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  manualCategoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  manualCategoryChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(26, 188, 156, 0.1)',
+  },
+  manualCategoryName: {
+    fontSize: 12,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textSecondary,
+    marginLeft: 6,
+  },
+  manualAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  manualAddButtonText: {
+    fontSize: 15,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    marginLeft: 8,
+  },
+  manualItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  manualItemName: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  manualItemDetails: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  manualTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(26, 188, 156, 0.1)',
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  manualTotalLabel: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.textSecondary,
+  },
+  manualTotalValue: {
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  manualFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingBottom: 32,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  manualSaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  manualSaveButtonText: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    marginLeft: 8,
   },
 });
 

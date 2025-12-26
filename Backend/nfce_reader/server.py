@@ -286,6 +286,91 @@ async def obter_nota(
     return nota.to_dict()
 
 
+# ============================================================================
+# LANÇAMENTO MANUAL DE DESPESAS
+# ============================================================================
+
+class ItemManual(BaseModel):
+    nome: str
+    qtd: float = 1.0
+    valor: float
+    categoria_id: int
+
+class NotaManualRequest(BaseModel):
+    estabelecimento: str = "Lançamento Manual"
+    data_emissao: str = None  # YYYY-MM-DD
+    itens: list[ItemManual]
+
+@app.post("/notas/manual")
+async def criar_nota_manual(
+    request: NotaManualRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Cria uma nota fiscal manual (sem QR code).
+    
+    Para usuários que querem registrar despesas sem nota fiscal.
+    """
+    from database import ItemDB
+    import uuid
+    
+    # Validar que tem pelo menos 1 item
+    if not request.itens or len(request.itens) == 0:
+        raise HTTPException(status_code=400, detail="Pelo menos 1 item é obrigatório")
+    
+    # Calcular total
+    total = sum(item.qtd * item.valor for item in request.itens)
+    
+    # Data de emissão
+    data_emissao = None
+    if request.data_emissao:
+        try:
+            data_emissao = datetime.strptime(request.data_emissao, "%Y-%m-%d")
+        except ValueError:
+            data_emissao = datetime.utcnow()
+    else:
+        data_emissao = datetime.utcnow()
+    
+    # Criar nota com tipo MANUAL
+    # URL única gerada para evitar duplicação
+    url_unica = f"manual://{uuid.uuid4()}"
+    
+    nova_nota = NotaFiscalDB(
+        estabelecimento=request.estabelecimento or "Lançamento Manual",
+        endereco=None,
+        total=total,
+        data_emissao=data_emissao,
+        data_leitura=datetime.utcnow(),
+        url_origem=url_unica,
+        tipo='MANUAL'
+    )
+    
+    db.add(nova_nota)
+    db.flush()  # Para obter o ID
+    
+    # Adicionar itens
+    for item in request.itens:
+        novo_item = ItemDB(
+            nota_id=nova_nota.id,
+            nome=item.nome.upper(),  # Padronizar em maiúsculas
+            qtd=item.qtd,
+            valor=item.valor,
+            categoria_id=item.categoria_id
+        )
+        db.add(novo_item)
+    
+    db.commit()
+    db.refresh(nova_nota)
+    
+    return {
+        "success": True,
+        "message": "Lançamento manual criado com sucesso",
+        "nota_id": nova_nota.id,
+        "total": round(total, 2),
+        "num_itens": len(request.itens)
+    }
+
+
 @app.get("/itens/busca")
 async def buscar_itens(
     q: str = Query(..., min_length=2, description="Termo de busca (mínimo 2 caracteres)"),

@@ -57,6 +57,7 @@ class NotaFiscalDB(Base):
     data_emissao = Column(DateTime, nullable=True)
     data_leitura = Column(DateTime, default=datetime.utcnow)
     url_origem = Column(Text, unique=True, nullable=False, index=True)
+    tipo = Column(String(10), nullable=False, default='SCAN')  # SCAN ou MANUAL
     
     # Relacionamento com itens
     itens = relationship("ItemDB", back_populates="nota", cascade="all, delete-orphan")
