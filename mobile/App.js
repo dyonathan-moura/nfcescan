@@ -111,6 +111,11 @@ export default function App() {
   const [fornecedoresData, setFornecedoresData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [dashboardFiltro, setDashboardFiltro] = useState('ano'); // Filtro padrão: Este Ano
+  const [showFilterModal, setShowFilterModal] = useState(false); // Modal de filtro dropdown
+  const [showDrillDownModal, setShowDrillDownModal] = useState(false); // Modal drill-down
+  const [drillDownData, setDrillDownData] = useState(null); // Dados do drill-down (itens)
+  const [drillDownType, setDrillDownType] = useState(null); // 'categoria' ou 'fornecedor'
+  const [loadingDrillDown, setLoadingDrillDown] = useState(false);
 
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -358,6 +363,46 @@ export default function App() {
     setShowCategoryModal(true);
   };
 
+  // Drill-down: Clique em categoria para ver produtos
+  const handleCategoryDrillDown = async (categoria) => {
+    setLoadingDrillDown(true);
+    setDrillDownType('categoria');
+    setShowDrillDownModal(true);
+
+    try {
+      const { dataInicio, dataFim } = getDashboardDates();
+      const url = `${API_URL}/itens/categoria/${categoria.id}?data_inicio=${dataInicio}&data_fim=${dataFim}`;
+      const response = await axios.get(url);
+      setDrillDownData(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar itens por categoria:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os itens');
+      setShowDrillDownModal(false);
+    } finally {
+      setLoadingDrillDown(false);
+    }
+  };
+
+  // Drill-down: Clique em fornecedor para ver produtos
+  const handleVendorDrillDown = async (estabelecimento) => {
+    setLoadingDrillDown(true);
+    setDrillDownType('fornecedor');
+    setShowDrillDownModal(true);
+
+    try {
+      const { dataInicio, dataFim } = getDashboardDates();
+      const url = `${API_URL}/itens/fornecedor?estabelecimento=${encodeURIComponent(estabelecimento)}&data_inicio=${dataInicio}&data_fim=${dataFim}`;
+      const response = await axios.get(url);
+      setDrillDownData(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar itens por fornecedor:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os itens');
+      setShowDrillDownModal(false);
+    } finally {
+      setLoadingDrillDown(false);
+    }
+  };
+
   // Atualizar categoria do item
   const updateItemCategory = async (categoriaId) => {
     if (!selectedItemForCategory) return;
@@ -595,51 +640,54 @@ export default function App() {
       <SafeAreaView style={styles.dashboardContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header */}
-        <View style={styles.dashboardHeaderPremium}>
-          {/* Botão de voltar removido para navegação por abas */}
-          <View style={{ width: 20 }} />
+        {/* Header com padding extra para status bar */}
+        <View style={[styles.dashboardHeaderPremium, { paddingTop: SIZES.lg }]}>
+          {/* Placeholder para balancear layout */}
+          <View style={{ width: 60 }} />
           <Text style={styles.dashboardTitleLarge}>Análise de Gastos</Text>
-          {statsData?.comparativo?.tendencia && (
-            <View style={[
-              styles.trendBadge,
-              { backgroundColor: statsData.comparativo.tendencia === 'alta' ? COLORS.danger + '30' : COLORS.success + '30' }
-            ]}>
-              <Text style={[
-                styles.trendText,
-                { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
+          {/* Badge de tendência - só mostra se tiver dados válidos do período anterior */}
+          {statsData?.comparativo?.tendencia &&
+            statsData.comparativo.total_anterior > 0 &&
+            statsData.comparativo.variacao_percentual !== 100 && (
+              <View style={[
+                styles.trendBadge,
+                { backgroundColor: statsData.comparativo.tendencia === 'alta' ? COLORS.danger + '30' : COLORS.success + '30' }
               ]}>
-                {statsData.comparativo.tendencia === 'alta' ? '↑' : '↓'} {Math.abs(statsData.comparativo.variacao_percentual)}%
-              </Text>
-            </View>
-          )}
+                <Text style={[
+                  styles.trendText,
+                  { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
+                ]}>
+                  {statsData.comparativo.tendencia === 'alta' ? '↑' : '↓'} {Math.abs(statsData.comparativo.variacao_percentual)}%
+                </Text>
+              </View>
+            )}
+          {/* Placeholder se não houver badge */}
+          {(!statsData?.comparativo?.tendencia ||
+            statsData?.comparativo?.total_anterior === 0 ||
+            statsData?.comparativo?.variacao_percentual === 100) && (
+              <View style={{ width: 60 }} />
+            )}
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SIZES.xl }}>
-          {/* Filtros de Período */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.dashboardFilterScroll}
-            contentContainerStyle={{ paddingHorizontal: SIZES.padding, gap: SIZES.sm }}
-          >
-            {[
-              { id: 'mes', label: 'Este Mês' },
-              { id: 'mesPassado', label: 'Mês Passado' },
-              { id: '3meses', label: '3 Meses' },
-              { id: 'ano', label: 'Este Ano' },
-            ].map(f => (
-              <TouchableOpacity
-                key={f.id}
-                style={[styles.dashboardChip, dashboardFiltro === f.id && styles.dashboardChipActive]}
-                onPress={() => setDashboardFiltro(f.id)}
-              >
-                <Text style={[styles.dashboardChipText, dashboardFiltro === f.id && styles.dashboardChipTextActive]}>
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* Filtro Dropdown */}
+          <View style={styles.filterDropdownContainer}>
+            <TouchableOpacity
+              style={styles.filterDropdownButton}
+              onPress={() => setShowFilterModal(true)}
+            >
+              <Feather name="filter" size={16} color={COLORS.textSecondary} />
+              <Text style={styles.filterDropdownText}>
+                {[
+                  { id: 'mes', label: 'Este Mês' },
+                  { id: 'mesPassado', label: 'Mês Passado' },
+                  { id: '3meses', label: '3 Meses' },
+                  { id: 'ano', label: 'Este Ano' },
+                ].find(f => f.id === dashboardFiltro)?.label || 'Filtrar'}
+              </Text>
+              <Feather name="chevron-down" size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
           {loadingDashboard ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>
@@ -694,7 +742,12 @@ export default function App() {
                 {topCategorias.map((cat, index) => {
                   const barWidth = (cat.total / maxCatValue) * 100;
                   return (
-                    <View key={cat.id} style={styles.barRow}>
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={styles.barRow}
+                      onPress={() => handleCategoryDrillDown(cat)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.barLabel}>
                         <CategoryIcon category={cat.nome} size={24} />
                         <Text style={styles.barLabelText} numberOfLines={1}>{cat.nome}</Text>
@@ -711,7 +764,8 @@ export default function App() {
                         />
                       </View>
                       <Text style={styles.barValue}>R$ {cat.total.toFixed(0)}</Text>
-                    </View>
+                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -722,7 +776,12 @@ export default function App() {
                   <Text style={styles.analyticSectionTitle}>🏪 Top Fornecedores</Text>
 
                   {fornecedoresData.fornecedores.map((fornec, index) => (
-                    <View key={index} style={styles.fornecedorRow}>
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.fornecedorRow}
+                      onPress={() => handleVendorDrillDown(fornec.nome)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.fornecedorRank}>
                         <Text style={styles.fornecedorRankText}>{index + 1}º</Text>
                       </View>
@@ -734,7 +793,8 @@ export default function App() {
                         <Text style={styles.fornecedorTotal}>R$ {fornec.total.toFixed(2)}</Text>
                         <Text style={styles.fornecedorPercent}>{fornec.porcentagem}%</Text>
                       </View>
-                    </View>
+                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -770,6 +830,132 @@ export default function App() {
             </View>
           )}
         </ScrollView>
+
+        {/* Modal de Filtro */}
+        <Modal
+          visible={showFilterModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.filterModalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowFilterModal(false)}
+          >
+            <View style={styles.filterModalContent}>
+              <Text style={styles.filterModalTitle}>Selecione o período</Text>
+              {[
+                { id: 'mes', label: 'Este Mês', icon: '📅' },
+                { id: 'mesPassado', label: 'Mês Passado', icon: '⏮️' },
+                { id: '3meses', label: 'Últimos 3 Meses', icon: '📊' },
+                { id: 'ano', label: 'Este Ano', icon: '📆' },
+              ].map(f => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[
+                    styles.filterModalOption,
+                    dashboardFiltro === f.id && styles.filterModalOptionActive
+                  ]}
+                  onPress={() => {
+                    setDashboardFiltro(f.id);
+                    setShowFilterModal(false);
+                  }}
+                >
+                  <Text style={styles.filterModalOptionIcon}>{f.icon}</Text>
+                  <Text style={[
+                    styles.filterModalOptionText,
+                    dashboardFiltro === f.id && styles.filterModalOptionTextActive
+                  ]}>
+                    {f.label}
+                  </Text>
+                  {dashboardFiltro === f.id && (
+                    <Feather name="check" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Modal de Drill-Down (Itens por Categoria/Fornecedor) */}
+        <Modal
+          visible={showDrillDownModal}
+          animationType="slide"
+          onRequestClose={() => setShowDrillDownModal(false)}
+        >
+          <SafeAreaView style={styles.drillDownContainer}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+
+            {/* Header */}
+            <View style={styles.drillDownHeader}>
+              <TouchableOpacity
+                style={styles.drillDownBackButton}
+                onPress={() => setShowDrillDownModal(false)}
+              >
+                <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <View style={styles.drillDownTitleContainer}>
+                <Text style={styles.drillDownTitle}>
+                  {drillDownType === 'categoria' && drillDownData?.categoria ? (
+                    `${drillDownData.categoria.icone} ${drillDownData.categoria.nome}`
+                  ) : drillDownType === 'fornecedor' && drillDownData?.estabelecimento ? (
+                    `🏪 ${drillDownData.estabelecimento}`
+                  ) : 'Carregando...'}
+                </Text>
+                {drillDownData && (
+                  <Text style={styles.drillDownSubtitle}>
+                    {drillDownData.total_itens} itens • R$ {drillDownData.total_valor?.toFixed(2)}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Lista de Itens */}
+            {loadingDrillDown ? (
+              <View style={styles.drillDownLoading}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Carregando itens...</Text>
+              </View>
+            ) : drillDownData?.itens?.length > 0 ? (
+              <FlatList
+                data={drillDownData.itens}
+                keyExtractor={(item, index) => `${item.item_id}-${index}`}
+                contentContainerStyle={{ padding: SIZES.padding }}
+                renderItem={({ item }) => (
+                  <View style={styles.drillDownItem}>
+                    <View style={styles.drillDownItemLeft}>
+                      <Text style={styles.drillDownItemName} numberOfLines={2}>
+                        {item.produto}
+                      </Text>
+                      <Text style={styles.drillDownItemMeta}>
+                        {drillDownType === 'categoria' ? item.estabelecimento : (
+                          `${item.categoria_icone || '📦'} ${item.categoria || 'Outros'}`
+                        )}
+                      </Text>
+                      <Text style={styles.drillDownItemDate}>
+                        {item.data_emissao ? new Date(item.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR') : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.drillDownItemRight}>
+                      <Text style={styles.drillDownItemValue}>
+                        R$ {item.valor?.toFixed(2)}
+                      </Text>
+                      <Text style={styles.drillDownItemQtd}>
+                        x{item.qtd}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              />
+            ) : (
+              <View style={styles.drillDownEmpty}>
+                <Text style={styles.emptyIcon}>📭</Text>
+                <Text style={styles.emptyText}>Nenhum item encontrado</Text>
+              </View>
+            )}
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -1803,10 +1989,11 @@ const styles = StyleSheet.create({
   dashboardChipText: {
     fontSize: 14,
     fontFamily: FONTS.semiBold,
-    color: COLORS.textSecondary,
+    color: COLORS.textMuted,
   },
   dashboardChipTextActive: {
     color: COLORS.white,
+    fontFamily: FONTS.bold,
   },
   kpiCardMain: {
     flex: 1,
@@ -2000,6 +2187,161 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 12,
     fontFamily: FONTS.bold,
+  },
+  // Filter Dropdown Styles
+  filterDropdownContainer: {
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.md,
+  },
+  filterDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSolid,
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: SIZES.sm,
+    alignSelf: 'flex-start',
+  },
+  filterDropdownText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textPrimary,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.padding,
+  },
+  filterModalContent: {
+    backgroundColor: COLORS.surfaceSolid,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.lg,
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SIZES.lg,
+    textAlign: 'center',
+  },
+  filterModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.sm,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.xs,
+  },
+  filterModalOptionActive: {
+    backgroundColor: COLORS.primary + '20',
+  },
+  filterModalOptionIcon: {
+    fontSize: 20,
+    marginRight: SIZES.md,
+  },
+  filterModalOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+  },
+  filterModalOptionTextActive: {
+    color: COLORS.primary,
+    fontFamily: FONTS.bold,
+  },
+  // Drill-Down Modal Styles
+  drillDownContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  drillDownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  drillDownBackButton: {
+    padding: SIZES.sm,
+    marginRight: SIZES.sm,
+  },
+  drillDownTitleContainer: {
+    flex: 1,
+  },
+  drillDownTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  drillDownSubtitle: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  drillDownLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drillDownEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drillDownItem: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceSolid,
+    padding: SIZES.md,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  drillDownItemLeft: {
+    flex: 1,
+  },
+  drillDownItemRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  drillDownItemName: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  drillDownItemMeta: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+  drillDownItemDate: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  drillDownItemValue: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+  drillDownItemQtd: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
   kpiGrid: {
     flexDirection: 'row',

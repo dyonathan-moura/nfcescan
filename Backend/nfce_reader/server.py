@@ -338,6 +338,169 @@ async def buscar_itens(
     }
 
 
+@app.get("/itens/categoria/{categoria_id}")
+async def listar_itens_por_categoria(
+    categoria_id: int,
+    data_inicio: str = Query(default=None, description="Data inicial (YYYY-MM-DD)"),
+    data_fim: str = Query(default=None, description="Data final (YYYY-MM-DD)"),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista todos os itens de uma categoria específica.
+    
+    Drill-down do dashboard para ver produtos comprados por categoria.
+    """
+    from database import ItemDB, CategoriaDB
+    
+    # Filtro base por categoria
+    query = db.query(
+        ItemDB.id,
+        ItemDB.nome,
+        ItemDB.qtd,
+        ItemDB.valor,
+        ItemDB.nota_id,
+        NotaFiscalDB.estabelecimento,
+        NotaFiscalDB.data_emissao,
+        CategoriaDB.nome.label("categoria_nome"),
+        CategoriaDB.icone.label("categoria_icone")
+    ).join(
+        NotaFiscalDB, ItemDB.nota_id == NotaFiscalDB.id
+    ).outerjoin(
+        CategoriaDB, ItemDB.categoria_id == CategoriaDB.id
+    ).filter(
+        ItemDB.categoria_id == categoria_id
+    )
+    
+    # Filtros de data
+    if data_inicio:
+        try:
+            dt_inicio = datetime.strptime(data_inicio, "%Y-%m-%d")
+            query = query.filter(NotaFiscalDB.data_emissao >= dt_inicio)
+        except ValueError:
+            pass
+    
+    if data_fim:
+        try:
+            dt_fim = datetime.strptime(data_fim, "%Y-%m-%d")
+            query = query.filter(NotaFiscalDB.data_emissao <= dt_fim)
+        except ValueError:
+            pass
+    
+    results = query.order_by(NotaFiscalDB.data_emissao.desc()).limit(limit).all()
+    
+    # Buscar info da categoria
+    categoria = db.query(CategoriaDB).filter(CategoriaDB.id == categoria_id).first()
+    
+    itens = []
+    total_valor = 0
+    for row in results:
+        valor = row.valor or 0
+        total_valor += valor
+        itens.append({
+            "item_id": row.id,
+            "nota_id": row.nota_id,
+            "produto": row.nome,
+            "qtd": row.qtd,
+            "valor": round(valor, 2),
+            "estabelecimento": row.estabelecimento,
+            "data_emissao": row.data_emissao.strftime("%Y-%m-%d") if row.data_emissao else None
+        })
+    
+    return {
+        "categoria": {
+            "id": categoria.id if categoria else categoria_id,
+            "nome": categoria.nome if categoria else "Desconhecida",
+            "icone": categoria.icone if categoria else "📦"
+        },
+        "total_itens": len(itens),
+        "total_valor": round(total_valor, 2),
+        "itens": itens
+    }
+
+
+@app.get("/itens/fornecedor")
+async def listar_itens_por_fornecedor(
+    estabelecimento: str = Query(..., description="Nome do estabelecimento"),
+    data_inicio: str = Query(default=None, description="Data inicial (YYYY-MM-DD)"),
+    data_fim: str = Query(default=None, description="Data final (YYYY-MM-DD)"),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista todos os itens comprados de um fornecedor (estabelecimento) específico.
+    
+    Drill-down do dashboard para ver produtos comprados por fornecedor.
+    """
+    from database import ItemDB, CategoriaDB
+    
+    # Filtro base por estabelecimento
+    query = db.query(
+        ItemDB.id,
+        ItemDB.nome,
+        ItemDB.qtd,
+        ItemDB.valor,
+        ItemDB.nota_id,
+        NotaFiscalDB.estabelecimento,
+        NotaFiscalDB.data_emissao,
+        CategoriaDB.nome.label("categoria_nome"),
+        CategoriaDB.icone.label("categoria_icone")
+    ).join(
+        NotaFiscalDB, ItemDB.nota_id == NotaFiscalDB.id
+    ).outerjoin(
+        CategoriaDB, ItemDB.categoria_id == CategoriaDB.id
+    ).filter(
+        NotaFiscalDB.estabelecimento.ilike(f"%{estabelecimento}%")
+    )
+    
+    # Filtros de data
+    if data_inicio:
+        try:
+            dt_inicio = datetime.strptime(data_inicio, "%Y-%m-%d")
+            query = query.filter(NotaFiscalDB.data_emissao >= dt_inicio)
+        except ValueError:
+            pass
+    
+    if data_fim:
+        try:
+            dt_fim = datetime.strptime(data_fim, "%Y-%m-%d")
+            query = query.filter(NotaFiscalDB.data_emissao <= dt_fim)
+        except ValueError:
+            pass
+    
+    results = query.order_by(NotaFiscalDB.data_emissao.desc()).limit(limit).all()
+    
+    itens = []
+    total_valor = 0
+    categorias_count = {}
+    
+    for row in results:
+        valor = row.valor or 0
+        total_valor += valor
+        
+        cat_nome = row.categoria_nome or "Outros"
+        categorias_count[cat_nome] = categorias_count.get(cat_nome, 0) + 1
+        
+        itens.append({
+            "item_id": row.id,
+            "nota_id": row.nota_id,
+            "produto": row.nome,
+            "qtd": row.qtd,
+            "valor": round(valor, 2),
+            "categoria": cat_nome,
+            "categoria_icone": row.categoria_icone or "📦",
+            "data_emissao": row.data_emissao.strftime("%Y-%m-%d") if row.data_emissao else None
+        })
+    
+    return {
+        "estabelecimento": estabelecimento,
+        "total_itens": len(itens),
+        "total_valor": round(total_valor, 2),
+        "categorias_compradas": categorias_count,
+        "itens": itens
+    }
+
+
 @app.delete("/notas/{nota_id}")
 async def deletar_nota(
     nota_id: int,
