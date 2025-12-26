@@ -42,6 +42,38 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# =============================================================================
+# MIGRAÇÃO AUTOMÁTICA - Adicionar colunas novas se não existirem
+# =============================================================================
+def run_migrations():
+    """Adiciona colunas novas ao banco de dados se não existirem."""
+    from sqlalchemy import text
+    
+    try:
+        with engine.connect() as conn:
+            # Verificar se coluna 'tipo' existe na tabela notas_fiscais
+            result = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'notas_fiscais' AND column_name = 'tipo'
+            """))
+            
+            if result.fetchone() is None:
+                # Adicionar coluna tipo com valor padrão 'SCAN'
+                conn.execute(text("""
+                    ALTER TABLE notas_fiscais 
+                    ADD COLUMN tipo VARCHAR(10) NOT NULL DEFAULT 'SCAN'
+                """))
+                conn.commit()
+                print("✅ Migração: coluna 'tipo' adicionada à tabela notas_fiscais")
+            else:
+                print("✅ Migração: coluna 'tipo' já existe")
+    except Exception as e:
+        print(f"⚠️ Migração: erro ao verificar/adicionar coluna tipo - {e}")
+
+# Rodar migrações na inicialização
+run_migrations()
+
+
 # ============================================================================
 # MODELOS
 # ============================================================================
