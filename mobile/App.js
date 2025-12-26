@@ -20,6 +20,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
 import { PieChart } from 'react-native-chart-kit';
+import Svg, { Path, G, Circle } from 'react-native-svg';
 import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -58,6 +59,78 @@ const FILTROS_DATA = [
 
 // Ícones de categoria - Agora vem do banco, mas mantemos fallback
 const getCategoryIcon = (categoria) => categoria?.icone || '📦';
+
+// ============================================================================
+// COMPONENTE DONUT CHART - Gráfico de pizza com SVG
+// ============================================================================
+const DonutChart = ({ data, size = 140, strokeWidth = 25, centerLabel, centerValue, colors }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+
+  // Calcular total
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  if (total === 0) return null;
+
+  // Calcular os segmentos
+  let currentAngle = -90; // Começar do topo
+  const segments = data.map((item, index) => {
+    const percentage = item.value / total;
+    const angle = percentage * 360;
+    const startAngle = currentAngle;
+    currentAngle += angle;
+
+    // Calcular coordenadas do arco
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = ((startAngle + angle) * Math.PI) / 180;
+
+    const x1 = center + radius * Math.cos(startRad);
+    const y1 = center + radius * Math.sin(startRad);
+    const x2 = center + radius * Math.cos(endRad);
+    const y2 = center + radius * Math.sin(endRad);
+
+    const largeArc = angle > 180 ? 1 : 0;
+
+    const pathData = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`;
+
+    return {
+      path: pathData,
+      color: colors[index % colors.length],
+      percentage: Math.round(percentage * 100),
+    };
+  });
+
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size}>
+        <G>
+          {segments.map((segment, index) => (
+            <Path
+              key={index}
+              d={segment.path}
+              stroke={segment.color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+            />
+          ))}
+        </G>
+      </Svg>
+      <View style={{
+        position: 'absolute',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <Text style={{ fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {centerLabel}
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', color: '#fff', marginTop: 2 }}>
+          {centerValue}
+        </Text>
+      </View>
+    </View>
+  );
+};
 
 // ============================================================================
 // COMPONENTE SEARCHINPUT - Estado local para evitar perda de foco
@@ -912,19 +985,24 @@ export default function App() {
                 </View>
               </View>
 
-              {/* ===== PIE CHART CIRCULAR ===== */}
+              {/* ===== PIE CHART CIRCULAR COM SVG ===== */}
               <View style={styles.pieChartSection}>
                 <View style={styles.pieChartContainer}>
-                  <View style={styles.pieChartOuter}>
-                    <View style={styles.pieChartInner}>
-                      <Text style={styles.pieTopLabel}>Top Cat.</Text>
-                      <Text style={styles.pieTopValue}>{topCategorias[0]?.nome || 'Sem dados'}</Text>
-                    </View>
-                  </View>
+                  <DonutChart
+                    data={topCategorias.slice(0, 5).map(cat => ({
+                      name: cat.nome,
+                      value: cat.total
+                    }))}
+                    size={150}
+                    strokeWidth={22}
+                    centerLabel="Top Cat."
+                    centerValue={topCategorias[0]?.nome || 'N/A'}
+                    colors={barColors}
+                  />
 
                   {/* Legend */}
                   <View style={styles.pieLegend}>
-                    {topCategorias.slice(0, 4).map((cat, index) => (
+                    {topCategorias.slice(0, 5).map((cat, index) => (
                       <View key={cat.id} style={styles.pieLegendItem}>
                         <View style={[styles.pieLegendDot, { backgroundColor: barColors[index % barColors.length] }]} />
                         <Text style={styles.pieLegendText}>{cat.nome}</Text>
