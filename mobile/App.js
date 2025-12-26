@@ -2609,9 +2609,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   filterChipActive: {
-    backgroundColor: COLORS.secondary,
-    borderColor: COLORS.secondary,
-    shadowColor: COLORS.secondary,
+    backgroundColor: '#8B5CF6',
+    borderColor: '#8B5CF6',
+    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
