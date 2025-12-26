@@ -1016,7 +1016,7 @@ export default function App() {
               <View style={styles.analyticSection}>
                 <View style={styles.categoriesHeader}>
                   <Text style={styles.analyticSectionTitleClean}>Categorias</Text>
-                  <TouchableOpacity>
+                  <TouchableOpacity onPress={() => setActiveTab('history')}>
                     <Text style={styles.viewAllLink}>Ver todas</Text>
                   </TouchableOpacity>
                 </View>
