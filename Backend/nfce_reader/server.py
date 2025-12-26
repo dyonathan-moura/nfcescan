@@ -298,20 +298,24 @@ async def buscar_itens(
     Retorna dados planos (flat) com preço, estabelecimento e data
     para facilitar comparação de preços.
     """
-    from database import ItemDB
+    from database import ItemDB, CategoriaDB
     
-    # JOIN Item + NotaFiscal
+    # JOIN Item + NotaFiscal + Categoria
     results = db.query(
         ItemDB.id,
         ItemDB.nome,
         ItemDB.qtd,
         ItemDB.valor,
-        ItemDB.categoria,
+        ItemDB.categoria_id,
         ItemDB.nota_id,
         NotaFiscalDB.estabelecimento,
-        NotaFiscalDB.data_emissao
+        NotaFiscalDB.data_emissao,
+        CategoriaDB.nome.label("categoria_nome"),
+        CategoriaDB.icone.label("categoria_icone")
     ).join(
         NotaFiscalDB, ItemDB.nota_id == NotaFiscalDB.id
+    ).outerjoin(
+        CategoriaDB, ItemDB.categoria_id == CategoriaDB.id
     ).filter(
         ItemDB.nome.ilike(f"%{q}%")
     ).order_by(
@@ -326,8 +330,12 @@ async def buscar_itens(
             "nota_id": row.nota_id,
             "produto": row.nome,
             "qtd": row.qtd,
-            "valor_unitario": round(row.valor, 2),
-            "categoria": row.categoria,
+            "valor_unitario": round(row.valor, 2) if row.valor else 0,
+            "categoria": {
+                "id": row.categoria_id or 0,
+                "nome": row.categoria_nome or "Outros",
+                "icone": row.categoria_icone or "📦"
+            },
             "estabelecimento": row.estabelecimento,
             "data_emissao": row.data_emissao.strftime("%Y-%m-%d") if row.data_emissao else None
         })

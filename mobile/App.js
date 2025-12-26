@@ -59,6 +59,67 @@ const FILTROS_DATA = [
 // Ícones de categoria - Agora vem do banco, mas mantemos fallback
 const getCategoryIcon = (categoria) => categoria?.icone || '📦';
 
+// ============================================================================
+// COMPONENTE SEARCHINPUT - Estado local para evitar perda de foco
+// ============================================================================
+const SearchInput = React.memo(({ onSearch, onClear, placeholder }) => {
+  const [localValue, setLocalValue] = useState('');
+
+  const handleSubmit = () => {
+    if (localValue.trim().length >= 2) {
+      onSearch(localValue.trim());
+    }
+  };
+
+  const handleClear = () => {
+    setLocalValue('');
+    onClear();
+  };
+
+  return (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#1a2c29',
+      marginHorizontal: 16,
+      marginVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      height: 48,
+    }}>
+      <Feather name="search" size={20} color="#1abc9c" style={{ marginRight: 8 }} />
+      <TextInput
+        style={{
+          flex: 1,
+          fontSize: 15,
+          color: '#f0f0f0',
+        }}
+        placeholder={placeholder || "Buscar produto..."}
+        placeholderTextColor="#666"
+        value={localValue}
+        onChangeText={setLocalValue}
+        onSubmitEditing={handleSubmit}
+        returnKeyType="search"
+        autoCorrect={false}
+        blurOnSubmit={false}
+      />
+      {localValue.length > 0 && (
+        <TouchableOpacity onPress={handleClear} style={{ padding: 4 }}>
+          <Feather name="x-circle" size={20} color="#666" />
+        </TouchableOpacity>
+      )}
+      {localValue.length >= 2 && (
+        <TouchableOpacity
+          onPress={handleSubmit}
+          style={{ padding: 8, backgroundColor: '#1abc9c', borderRadius: 8, marginLeft: 8 }}
+        >
+          <Feather name="search" size={18} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
 export default function App() {
   // Carregar fontes Nunito
   const [fontsLoaded] = useFonts({
@@ -91,6 +152,7 @@ export default function App() {
   const [produtos, setProdutos] = useState([]);
   const [modoBusca, setModoBusca] = useState(false);
   const [historyViewMode, setHistoryViewMode] = useState('notes'); // 'notes' or 'products'
+  const [isSearching, setIsSearching] = useState(false); // Indicador de busca em andamento
 
   // Estados - Modal de Renomear
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -187,24 +249,32 @@ export default function App() {
 
   // Buscar produtos pelo nome (busca comparativa)
   const fetchProdutos = useCallback(async (termo) => {
+    console.log('fetchProdutos chamado com:', termo);
+
     if (!termo || termo.trim().length < 2) {
       setProdutos([]);
       setModoBusca(false);
+      setIsSearching(false);
       return;
     }
 
-    setLoadingNotas(true);
+    setIsSearching(true);
 
     try {
       const url = `${API_URL}/itens/busca?q=${encodeURIComponent(termo.trim())}`;
+      console.log('Buscando URL:', url);
       const response = await axios.get(url, { timeout: 10000 });
-      setProdutos(response.data.itens || []);
+      console.log('Resposta:', response.data);
+      const itens = response.data.itens || [];
+      setProdutos(itens);
       setModoBusca(true);  // Modo busca de produtos
+      Alert.alert('Debug', `Encontrados ${itens.length} produtos para "${termo}"`);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
+      Alert.alert('Erro', 'Falha ao buscar: ' + error.message);
       setProdutos([]);
     } finally {
-      setLoadingNotas(false);
+      setIsSearching(false);
     }
   }, []);
 
@@ -306,6 +376,9 @@ export default function App() {
       fetchDashboard(dashboardFiltro);
     }
   }, [activeTab, dashboardFiltro]);
+
+  // ===== BUSCA MANUAL - Executada ao pressionar Enter/Submit =====
+  // (Debounce removido pois causava problemas de foco no teclado)
 
   // Tela de carregamento enquanto fontes carregam
   if (!fontsLoaded) {
@@ -1073,12 +1146,7 @@ export default function App() {
         <View style={styles.historyHeader}>
           <View style={{ width: 48 }} />
           <Text style={styles.historyTitle}>Histórico</Text>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => setActiveTab('scan')}
-          >
-            <Feather name="maximize" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
+          <View style={{ width: 48 }} />
         </View>
 
         {/* Segmented Control */}
@@ -1094,7 +1162,7 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.segmentButton, historyViewMode === 'products' && styles.segmentButtonActive]}
-              onPress={() => setHistoryViewMode('products')}
+              onPress={() => { setHistoryViewMode('products'); setModoBusca(true); }}
             >
               <Text style={[styles.segmentText, historyViewMode === 'products' && styles.segmentTextActive]}>
                 Produtos
@@ -1103,24 +1171,17 @@ export default function App() {
           </View>
         </View>
 
-        {/* Search Bar Moderno */}
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={20} color={COLORS.primary} style={styles.searchIconNew} />
-          <TextInput
-            style={styles.searchInputNew}
-            placeholder="Buscar mercado ou produto..."
-            placeholderTextColor={COLORS.textMuted}
-            value={busca}
-            onChangeText={setBusca}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          {busca.length > 0 && (
-            <TouchableOpacity onPress={() => { setBusca(''); setModoBusca(false); }}>
-              <Feather name="x-circle" size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Search Bar com Estado Local (evita perda de foco) */}
+        <SearchInput
+          placeholder="Buscar produto..."
+          onSearch={(termo) => {
+            fetchProdutos(termo);
+          }}
+          onClear={() => {
+            setModoBusca(false);
+            setProdutos([]);
+          }}
+        />
 
         {/* Filter Chips */}
         <ScrollView
@@ -1147,9 +1208,6 @@ export default function App() {
           <Text style={styles.metaText}>
             {modoBusca ? `${produtos.length} produto(s)` : `${notas.length} transações`}
           </Text>
-          <TouchableOpacity onPress={() => setActiveTab('reports')}>
-            <Text style={styles.metaLink}>Ver Relatório</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Lista de Transações */}
@@ -1169,11 +1227,6 @@ export default function App() {
                 message="Digite o nome do produto para comparar preços"
               />
             }
-            ListFooterComponent={
-              produtos.length > 0 && (
-                <Text style={styles.listEndText}>Você está em dia!</Text>
-              )
-            }
           />
         ) : (
           <FlatList
@@ -1190,11 +1243,6 @@ export default function App() {
                 buttonTitle="Escanear Agora"
                 onButtonPress={() => setActiveTab('scan')}
               />
-            }
-            ListFooterComponent={
-              notas.length > 0 && (
-                <Text style={styles.listEndText}>Você está em dia!</Text>
-              )
             }
           />
         )}
@@ -2192,7 +2240,7 @@ const styles = StyleSheet.create({
   },
   transactionsList: {
     paddingHorizontal: SIZES.padding,
-    paddingBottom: 100,
+    paddingBottom: 150,
     flexGrow: 1,
   },
   transactionCard: {
