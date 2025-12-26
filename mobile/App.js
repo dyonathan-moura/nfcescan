@@ -873,7 +873,7 @@ export default function App() {
           ))}
         </ScrollView>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SIZES.xl }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: SIZES.xl, flexGrow: 1 }}>
           {loadingDashboard ? (
             <View style={{ alignItems: 'center', marginTop: 60 }}>
               <LottieAnimation name="loading" size={100} />
@@ -3293,8 +3293,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: SIZES.padding,
-    gap: SIZES.md,
-    marginTop: SIZES.md,
+    gap: SIZES.sm,
+    marginTop: SIZES.xs,
   },
   kpiCardNew: {
     width: '47%', // Aproximadamente metade menos o gap
