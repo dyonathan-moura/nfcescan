@@ -1037,13 +1037,18 @@ async def chat_with_ai(
             "text": None
         }
     
-    # Processar mensagem usando ChatService
-    chat_service = get_chat_service()
-    response = chat_service.process_message(
+    # Processar mensagem usando LangChain Service
+    from langchain_service import get_langchain_service
+    
+    langchain_svc = get_langchain_service()
+    response = langchain_svc.process_message(
         message=request.message,
-        db=db,
+        db_session=db,
         history=request.history
     )
+    
+    # Remover logs internos da resposta (apenas para debug no servidor)
+    response.pop("_logs", None)
     
     return response
 
