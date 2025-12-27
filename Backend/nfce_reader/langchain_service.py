@@ -284,7 +284,7 @@ EXEMPLOS:
 5. "Quanto gastei este mês?":
    SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
 
-Retorne JSON: {{"intent": "spending_query|category_query|establishment_query|general", "requires_sql": true|false, "sql_query": "SELECT..."}}"""),
+Retorne JSON: {{{{"intent": "spending_query|category_query|establishment_query|general", "requires_sql": true|false, "sql_query": "SELECT..."}}}}"""),
             ("human", f"Mensagem: {message}")
         ])
         
