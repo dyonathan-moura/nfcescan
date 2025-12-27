@@ -233,49 +233,53 @@ SCHEMA DO BANCO (PostgreSQL):
 - itens (id, nota_id, nome, qtd, valor, categoria_id)
 - categorias (id, nome, icone)
 
+CATEGORIAS DISPONÍVEIS NO SISTEMA:
+Bebidas, Transporte, Casa, Limpeza, Higiene, Açougue, Hortifruti, Laticínios, 
+Padaria, Pet, Farmácia, Vestuário, Eletrônicos, Lazer, Mercearia, Congelados, 
+Ferramentas, Outros
+
+REGRAS IMPORTANTES:
+1. Se o usuário mencionar uma CATEGORIA existente (ex: "mercado" → Mercearia, "comida" → Mercearia/Açougue/Hortifruti):
+   → Use JOIN com categorias e filtre por c.nome
+   
+2. Se mencionou um ESTABELECIMENTO específico (ex: "Big", "Carrefour", "Uber"):
+   → Filtre por LOWER(estabelecimento) LIKE '%nome%'
+
+3. "mercado" ou "supermercado" = buscar por CATEGORIA 'Mercearia' (NÃO por estabelecimento!)
+
 REGRAS SQL OBRIGATÓRIAS:
 - Tabela principal: notas_fiscais (NÃO "notas")
 - NUNCA use strings literais de data como '2025-12-27'
-- SEMPRE use CURRENT_DATE, CURRENT_TIMESTAMP
+- SEMPRE use CURRENT_DATE
 
-FILTROS DE PERÍODO (baseado na pergunta do usuário):
+FILTROS DE PERÍODO:
 - "hoje" → data_emissao::date = CURRENT_DATE
 - "esta semana" → data_emissao >= DATE_TRUNC('week', CURRENT_DATE)
 - "este mês" → data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
 - "este ano" → data_emissao >= DATE_TRUNC('year', CURRENT_DATE)
-- Sem período especificado → NÃO use filtro de data (retorna todo histórico)
-
-JOINS:
-- itens.nota_id = notas_fiscais.id
-- itens.categoria_id = categorias.id
+- Sem período → NÃO use filtro de data
 
 EXEMPLOS:
 
-1. "Quanto gastei?" (sem período):
+1. "Quanto gastei?" (total geral):
    SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais
 
-2. "Quanto gastei hoje?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao::date = CURRENT_DATE
+2. "Quanto gastei em mercado?" (categoria Mercearia):
+   SELECT COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id WHERE c.nome = 'Mercearia'
 
-3. "Quanto gastei esta semana?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('week', CURRENT_DATE)
+3. "Quanto gastei em alimentação?" (várias categorias):
+   SELECT COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id WHERE c.nome IN ('Mercearia', 'Açougue', 'Hortifruti', 'Laticínios', 'Padaria', 'Congelados')
 
-4. "Quanto gastei este mês?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+4. "Quanto gastei no Carrefour?" (estabelecimento específico):
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%carrefour%'
 
-5. "Quanto gastei este ano?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('year', CURRENT_DATE)
-
-6. "Quanto gastei em mercado?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%mercado%'
-
-7. "Quanto gastei em mercado este mês?":
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%mercado%' AND data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
-
-8. "Gastos por categoria":
+5. "Gastos por categoria":
    SELECT c.nome as categoria, COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id GROUP BY c.nome ORDER BY total DESC
 
-Retorne JSON: {{"intent": "spending_query|budget_check|comparison|general", "requires_sql": true|false, "sql_query": "SELECT..."}}"""),
+6. "Quanto gastei este mês?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+
+Retorne JSON: {{"intent": "spending_query|category_query|establishment_query|general", "requires_sql": true|false, "sql_query": "SELECT..."}}"""),
             ("human", f"Mensagem: {message}")
         ])
         
