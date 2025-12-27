@@ -91,7 +91,7 @@ class ChatLogCallback(BaseCallbackHandler):
     
     def on_chain_start(self, serialized: Dict, inputs: Dict, **kwargs):
         """Chamado quando uma chain começa."""
-        chain_name = serialized.get("name", "Unknown")
+        chain_name = serialized.get("name", "Unknown") if serialized else "Chain"
         self._log("INFO", "⛓️", f"Chain Start: {chain_name}")
     
     def on_chain_end(self, outputs: Dict, **kwargs):
@@ -101,7 +101,8 @@ class ChatLogCallback(BaseCallbackHandler):
     
     def on_tool_start(self, serialized: Dict, input_str: str, **kwargs):
         """Chamado quando uma tool (SQL) começa."""
-        self._log("INFO", "🔧", f"SQL Query: {input_str[:200]}")
+        tool_name = serialized.get("name", "Tool") if serialized else "SQL"
+        self._log("INFO", "🔧", f"{tool_name}: {input_str[:200]}")
     
     def on_tool_end(self, output: str, **kwargs):
         """Chamado quando uma tool termina."""
@@ -207,21 +208,58 @@ class LangChainService:
         today = datetime.now()
         
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """Você é um analisador de intenções financeiras. 
-Analise a mensagem e retorne APENAS um JSON válido.
+            ("system", """Você é um analisador de intenções financeiras para um app de controle de gastos.
+Analise a mensagem do usuário e retorne APENAS um JSON válido.
 
 SCHEMA DO BANCO (PostgreSQL):
-- notas_fiscais (id, estabelecimento, total, data_emissao)
+- notas_fiscais (id, estabelecimento, total, data_emissao TIMESTAMP)
 - itens (id, nota_id, nome, qtd, valor, categoria_id)
 - categorias (id, nome, icone)
 
-REGRAS SQL:
-- Use notas_fiscais (não "notas")
-- Para datas use: DATE_TRUNC('month', CURRENT_DATE)
-- JOINs: itens.nota_id = notas_fiscais.id
+REGRAS SQL OBRIGATÓRIAS:
+- Tabela principal: notas_fiscais (NÃO "notas")
+- NUNCA use strings literais de data como '2025-12-27'
+- SEMPRE use CURRENT_DATE, CURRENT_TIMESTAMP
+
+FILTROS DE PERÍODO (baseado na pergunta do usuário):
+- "hoje" → data_emissao::date = CURRENT_DATE
+- "esta semana" → data_emissao >= DATE_TRUNC('week', CURRENT_DATE)
+- "este mês" → data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+- "este ano" → data_emissao >= DATE_TRUNC('year', CURRENT_DATE)
+- Sem período especificado → NÃO use filtro de data (retorna todo histórico)
+
+JOINS:
+- itens.nota_id = notas_fiscais.id
+- itens.categoria_id = categorias.id
+
+EXEMPLOS:
+
+1. "Quanto gastei?" (sem período):
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais
+
+2. "Quanto gastei hoje?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao::date = CURRENT_DATE
+
+3. "Quanto gastei esta semana?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('week', CURRENT_DATE)
+
+4. "Quanto gastei este mês?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+
+5. "Quanto gastei este ano?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('year', CURRENT_DATE)
+
+6. "Quanto gastei em mercado?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%mercado%'
+
+7. "Quanto gastei em mercado este mês?":
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%mercado%' AND data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+
+8. "Gastos por categoria":
+   SELECT c.nome as categoria, COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id GROUP BY c.nome ORDER BY total DESC
 
 Retorne JSON: {{"intent": "spending_query|budget_check|comparison|general", "requires_sql": true|false, "sql_query": "SELECT..."}}"""),
-            ("human", f"Data atual: {today.strftime('%Y-%m-%d')}\n\nMensagem: {message}")
+            ("human", f"Mensagem: {message}")
         ])
         
         try:
