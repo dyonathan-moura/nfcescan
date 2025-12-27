@@ -91,22 +91,55 @@ class ChatService:
     def _analyze_intent(self, message: str) -> Dict[str, Any]:
         """Analisa a intenção do usuário usando IA."""
         
+        # Obter data atual para contexto
+        today = datetime.now()
+        current_month = today.strftime("%Y-%m")
+        current_year = today.year
+        
         prompt = f"""Analise a mensagem do usuário sobre finanças pessoais e retorne JSON:
 
 MENSAGEM: "{message}"
+
+CONTEXTO TEMPORAL:
+- Data atual: {today.strftime("%Y-%m-%d")}
+- Mês atual: {today.strftime("%B %Y")}
 
 Identifique:
 1. intent: tipo de pergunta (spending_query, budget_check, comparison, general)
 2. period: período mencionado (today, week, month, year, custom)
 3. category: categoria de gastos se mencionada (alimentação, transporte, etc)
-4. requires_sql: true se precisar consultar dados
-5. sql_query: SE requires_sql=true, gere SELECT para o schema:
-   - notas (id, estabelecimento, data_emissao, total)
-   - itens (id, produto, qtd, valor, nota_id, categoria_id)
-   - categorias (id, nome, icone)
+4. requires_sql: true se precisar consultar dados do banco
+5. sql_query: SE requires_sql=true, gere SELECT para o schema PostgreSQL:
+
+SCHEMA DO BANCO (PostgreSQL):
+- notas_fiscais (id, estabelecimento, endereco, total, data_emissao, data_leitura, url_origem, tipo)
+- itens (id, nota_id, nome, qtd, valor, categoria_id)
+- categorias (id, nome, icone, cor)
+
+REGRAS IMPORTANTES PARA SQL:
+- Use notas_fiscais, NÃO "notas"
+- Use itens.nome para nome do produto, NÃO "produto"
+- Para datas use sintaxe PostgreSQL:
+  * Mês atual: data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
+  * Hoje: data_emissao::date = CURRENT_DATE
+  * Este ano: EXTRACT(YEAR FROM data_emissao) = {current_year}
+- JOINs: itens.nota_id = notas_fiscais.id
+- JOINs: itens.categoria_id = categorias.id
+- Sempre SELECT read-only
+
+EXEMPLOS DE SQL CORRETO:
+1. Gastos do mês:
+   SELECT SUM(nf.total) as total FROM notas_fiscais nf WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
    
-IMPORTANTE: SQL deve ser SELECT apenas, read-only.
-Use funções SQLite: strftime, date, etc.
+2. Gastos por categoria:
+   SELECT c.nome as categoria, SUM(i.valor * i.qtd) as total FROM itens i 
+   JOIN categorias c ON i.categoria_id = c.id 
+   JOIN notas_fiscais nf ON i.nota_id = nf.id 
+   WHERE nf.data_emissao >= DATE_TRUNC('month', CURRENT_DATE) GROUP BY c.nome ORDER BY total DESC
+
+3. Top estabelecimentos:
+   SELECT estabelecimento, SUM(total) as total FROM notas_fiscais 
+   WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE) GROUP BY estabelecimento ORDER BY total DESC LIMIT 5
 
 Responda APENAS JSON válido:
 {{"intent": "...", "period": "...", "category": "...", "requires_sql": true/false, "sql_query": "..."}}"""
