@@ -38,6 +38,23 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./notas.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# =============================================================================
+# LANGSMITH CONFIGURATION (Observabilidade)
+# =============================================================================
+# Requer variáveis de ambiente:
+# - LANGSMITH_API_KEY: chave da API LangSmith
+# - LANGSMITH_TRACING: "true" para ativar
+
+LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "FinAI-Chat")
+
+if LANGSMITH_TRACING:
+    # Configurar nome do projeto para agrupar traces
+    os.environ["LANGCHAIN_PROJECT"] = LANGSMITH_PROJECT
+    logger.info(f"✅ LangSmith ativado - Projeto: {LANGSMITH_PROJECT}")
+else:
+    logger.info("ℹ️ LangSmith desativado (LANGSMITH_TRACING != 'true')")
+
 # Tipos de resposta
 RESPONSE_TYPES = {
     "TEXT": "text_message",
