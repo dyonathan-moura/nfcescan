@@ -16,6 +16,7 @@ import {
   Alert,
   Vibration,
   Animated,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
@@ -33,6 +34,10 @@ import { FriendlyModal, CategoryGrid, SkeletonList, Input, EmptyState, CategoryI
 
 // Utilities
 import { formatCurrency, formatDateShort, formatDateFull } from './src/utils/formatters';
+
+// Chat Components
+import { ChatScreen } from './src/components/chat';
+
 
 // ============================================================================
 // CONFIGURAÇÃO - API em produção no Render
@@ -262,6 +267,9 @@ export default function App() {
   const [manualItemValor, setManualItemValor] = useState('');
   const [manualItemCategoria, setManualItemCategoria] = useState(null);
   const [savingManual, setSavingManual] = useState(false);
+
+  // Estados - Chat IA
+  const [showChatScreen, setShowChatScreen] = useState(false);
 
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -908,351 +916,375 @@ export default function App() {
       <SafeAreaView style={styles.dashboardContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Header com Título e Filtros na mesma linha */}
-        <View style={styles.dashHeaderRow}>
-          <Text style={styles.dashTitleClean}>Análise de Gastos</Text>
+        {/* Renderizar ChatScreen se estiver ativo */}
+        {showChatScreen ? (
+          <ChatScreen onBack={() => setShowChatScreen(false)} />
+        ) : (
+          <>
+            {/* Header com Título e Filtros na mesma linha */}
+            <View style={styles.dashHeaderRow}>
+              <Text style={styles.dashTitleClean}>Análise de Gastos</Text>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dashFilterInlineContent}
-          >
-            {[
-              { id: 'mes', label: 'Mês' },
-              { id: 'mesPassado', label: 'Anterior' },
-              { id: '3meses', label: '3M' },
-              { id: 'ano', label: 'Ano' },
-            ].map((f) => (
-              <TouchableOpacity
-                key={f.id}
-                style={[
-                  styles.dashFilterChipSmall,
-                  dashboardFiltro === f.id && styles.dashFilterChipActive
-                ]}
-                onPress={() => setDashboardFiltro(f.id)}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dashFilterInlineContent}
               >
-                <Text style={[
-                  styles.dashFilterChipTextSmall,
-                  dashboardFiltro === f.id && styles.dashFilterChipTextActive
-                ]}>{f.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <ScrollView contentContainerStyle={{ paddingBottom: SIZES.xl, flexGrow: 1 }}>
-          {loadingDashboard ? (
-            <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <LottieAnimation name="loading" size={100} />
-              <Text style={styles.loadingText}>Carregando análise...</Text>
-            </View>
-          ) : statsData ? (
-            <>
-              {/* ===== KPIs GRID (2x2) ===== */}
-              <View style={styles.kpiGrid}>
-                {/* Total Gasto */}
-                <View style={[styles.kpiCardNew, { borderColor: COLORS.primary }]}>
-                  <KPIIcon name="money" size={40} />
-                  <Text style={styles.kpiLabelNew}>Total Gasto</Text>
-                  <Text style={[styles.kpiValueNew, { color: COLORS.primary }]}>
-                    R$ {statsData.total?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </Text>
-                </View>
-
-                {/* Média por Dia */}
-                <View style={[styles.kpiCardNew, { borderColor: COLORS.accent }]}>
-                  <KPIIcon name="chart" size={40} />
-                  <Text style={styles.kpiLabelNew}>Média/Dia</Text>
-                  <Text style={[styles.kpiValueNew, { color: COLORS.accent }]}>
-                    R$ {statsData.media_dia?.toFixed(2)}
-                  </Text>
-                </View>
-
-                {/* Total de Notas */}
-                <View style={[styles.kpiCardNew, { borderColor: COLORS.success }]}>
-                  <KPIIcon name="receipt" size={40} />
-                  <Text style={styles.kpiLabelNew}>Compras</Text>
-                  <Text style={[styles.kpiValueNew, { color: COLORS.success }]}>
-                    {statsData.num_notas}
-                  </Text>
-                </View>
-
-                {/* Ticket Médio */}
-                <View style={[styles.kpiCardNew, { borderColor: COLORS.secondary }]}>
-                  <KPIIcon name="store" size={40} />
-                  <Text style={styles.kpiLabelNew}>Ticket Médio</Text>
-                  <Text style={[styles.kpiValueNew, { color: COLORS.secondary }]}>
-                    R$ {statsData.ticket_medio?.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ===== PIE CHART CIRCULAR COM SVG ===== */}
-              <View style={styles.pieChartSection}>
-                <View style={styles.pieChartContainer}>
-                  <DonutChart
-                    data={topCategorias.slice(0, 5).map(cat => ({
-                      name: cat.nome,
-                      value: cat.total
-                    }))}
-                    size={150}
-                    strokeWidth={22}
-                    centerLabel="Top Cat."
-                    centerValue={topCategorias[0]?.nome || 'N/A'}
-                    colors={barColors}
-                  />
-
-                  {/* Legend */}
-                  <View style={styles.pieLegend}>
-                    {topCategorias.slice(0, 5).map((cat, index) => (
-                      <View key={cat.id} style={styles.pieLegendItem}>
-                        <View style={[styles.pieLegendDot, { backgroundColor: barColors[index % barColors.length] }]} />
-                        <Text style={styles.pieLegendText}>{cat.nome}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              </View>
-
-              {/* ===== CATEGORIAS COM PROGRESS BARS ===== */}
-              <View style={styles.analyticSection}>
-                <View style={styles.categoriesHeader}>
-                  <Text style={styles.analyticSectionTitleClean}>Categorias</Text>
-                  <TouchableOpacity onPress={() => setActiveTab('history')}>
-                    <Text style={styles.viewAllLink}>Ver todas</Text>
+                {[
+                  { id: 'mes', label: 'Mês' },
+                  { id: 'mesPassado', label: 'Anterior' },
+                  { id: '3meses', label: '3M' },
+                  { id: 'ano', label: 'Ano' },
+                ].map((f) => (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[
+                      styles.dashFilterChipSmall,
+                      dashboardFiltro === f.id && styles.dashFilterChipActive
+                    ]}
+                    onPress={() => setDashboardFiltro(f.id)}
+                  >
+                    <Text style={[
+                      styles.dashFilterChipTextSmall,
+                      dashboardFiltro === f.id && styles.dashFilterChipTextActive
+                    ]}>{f.label}</Text>
                   </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Botão FinAI Chat */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#5C43CC',
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginLeft: 8,
+                }}
+                onPress={() => setShowChatScreen(true)}
+              >
+                <Feather name="message-circle" size={16} color="#fff" />
+                <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 12, marginLeft: 4 }}>FinAI</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: SIZES.xl, flexGrow: 1 }}>
+              {loadingDashboard ? (
+                <View style={{ alignItems: 'center', marginTop: 60 }}>
+                  <LottieAnimation name="loading" size={100} />
+                  <Text style={styles.loadingText}>Carregando análise...</Text>
                 </View>
+              ) : statsData ? (
+                <>
+                  {/* ===== KPIs GRID (2x2) ===== */}
+                  <View style={styles.kpiGrid}>
+                    {/* Total Gasto */}
+                    <View style={[styles.kpiCardNew, { borderColor: COLORS.primary }]}>
+                      <KPIIcon name="money" size={40} />
+                      <Text style={styles.kpiLabelNew}>Total Gasto</Text>
+                      <Text style={[styles.kpiValueNew, { color: COLORS.primary }]}>
+                        R$ {statsData.total?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    </View>
 
-                {topCategorias.map((cat, index) => {
-                  const percentage = statsData?.total > 0
-                    ? Math.round((cat.total / statsData.total) * 100)
-                    : 0;
-                  const catColor = barColors[index % barColors.length];
+                    {/* Média por Dia */}
+                    <View style={[styles.kpiCardNew, { borderColor: COLORS.accent }]}>
+                      <KPIIcon name="chart" size={40} />
+                      <Text style={styles.kpiLabelNew}>Média/Dia</Text>
+                      <Text style={[styles.kpiValueNew, { color: COLORS.accent }]}>
+                        R$ {statsData.media_dia?.toFixed(2)}
+                      </Text>
+                    </View>
 
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={styles.categoryCardNew}
-                      onPress={() => handleCategoryDrillDown(cat)}
-                      activeOpacity={0.95}
-                    >
-                      <View style={styles.categoryCardContent}>
-                        {/* Icon Circle */}
-                        <View style={[styles.categoryIconCircle, { backgroundColor: catColor + '20' }]}>
-                          <CategoryIcon category={cat.nome} size={24} color={catColor} />
-                        </View>
+                    {/* Total de Notas */}
+                    <View style={[styles.kpiCardNew, { borderColor: COLORS.success }]}>
+                      <KPIIcon name="receipt" size={40} />
+                      <Text style={styles.kpiLabelNew}>Compras</Text>
+                      <Text style={[styles.kpiValueNew, { color: COLORS.success }]}>
+                        {statsData.num_notas}
+                      </Text>
+                    </View>
 
-                        {/* Info + Progress */}
-                        <View style={styles.categoryCardInfo}>
-                          <View style={styles.categoryCardRow}>
-                            <Text style={styles.categoryCardName}>{cat.nome}</Text>
-                            <Text style={styles.categoryCardValue}>R$ {cat.total.toFixed(2)}</Text>
+                    {/* Ticket Médio */}
+                    <View style={[styles.kpiCardNew, { borderColor: COLORS.secondary }]}>
+                      <KPIIcon name="store" size={40} />
+                      <Text style={styles.kpiLabelNew}>Ticket Médio</Text>
+                      <Text style={[styles.kpiValueNew, { color: COLORS.secondary }]}>
+                        R$ {statsData.ticket_medio?.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* ===== PIE CHART CIRCULAR COM SVG ===== */}
+                  <View style={styles.pieChartSection}>
+                    <View style={styles.pieChartContainer}>
+                      <DonutChart
+                        data={topCategorias.slice(0, 5).map(cat => ({
+                          name: cat.nome,
+                          value: cat.total
+                        }))}
+                        size={150}
+                        strokeWidth={22}
+                        centerLabel="Top Cat."
+                        centerValue={topCategorias[0]?.nome || 'N/A'}
+                        colors={barColors}
+                      />
+
+                      {/* Legend */}
+                      <View style={styles.pieLegend}>
+                        {topCategorias.slice(0, 5).map((cat, index) => (
+                          <View key={cat.id} style={styles.pieLegendItem}>
+                            <View style={[styles.pieLegendDot, { backgroundColor: barColors[index % barColors.length] }]} />
+                            <Text style={styles.pieLegendText}>{cat.nome}</Text>
                           </View>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
 
-                          {/* Progress Bar */}
-                          <View style={styles.categoryProgressBg}>
-                            <View
-                              style={[
-                                styles.categoryProgressFill,
-                                { width: `${percentage}%`, backgroundColor: catColor }
-                              ]}
-                            />
+                  {/* ===== CATEGORIAS COM PROGRESS BARS ===== */}
+                  <View style={styles.analyticSection}>
+                    <View style={styles.categoriesHeader}>
+                      <Text style={styles.analyticSectionTitleClean}>Categorias</Text>
+                      <TouchableOpacity onPress={() => setActiveTab('history')}>
+                        <Text style={styles.viewAllLink}>Ver todas</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {topCategorias.map((cat, index) => {
+                      const percentage = statsData?.total > 0
+                        ? Math.round((cat.total / statsData.total) * 100)
+                        : 0;
+                      const catColor = barColors[index % barColors.length];
+
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={styles.categoryCardNew}
+                          onPress={() => handleCategoryDrillDown(cat)}
+                          activeOpacity={0.95}
+                        >
+                          <View style={styles.categoryCardContent}>
+                            {/* Icon Circle */}
+                            <View style={[styles.categoryIconCircle, { backgroundColor: catColor + '20' }]}>
+                              <CategoryIcon category={cat.nome} size={24} color={catColor} />
+                            </View>
+
+                            {/* Info + Progress */}
+                            <View style={styles.categoryCardInfo}>
+                              <View style={styles.categoryCardRow}>
+                                <Text style={styles.categoryCardName}>{cat.nome}</Text>
+                                <Text style={styles.categoryCardValue}>R$ {cat.total.toFixed(2)}</Text>
+                              </View>
+
+                              {/* Progress Bar */}
+                              <View style={styles.categoryProgressBg}>
+                                <View
+                                  style={[
+                                    styles.categoryProgressFill,
+                                    { width: `${percentage}%`, backgroundColor: catColor }
+                                  ]}
+                                />
+                              </View>
+
+                              <Text style={styles.categoryPercentText}>{percentage}% do orçamento</Text>
+                            </View>
                           </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
-                          <Text style={styles.categoryPercentText}>{percentage}% do orçamento</Text>
+                  {/* ===== GASTOS POR FORNECEDOR ===== */}
+                  {fornecedoresData?.fornecedores?.length > 0 && (
+                    <View style={styles.analyticSection}>
+                      <Text style={styles.analyticSectionTitle}>🏪 Top Fornecedores</Text>
+
+                      {fornecedoresData.fornecedores.map((fornec, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.fornecedorRow}
+                          onPress={() => handleVendorDrillDown(fornec.nome)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.fornecedorRank}>
+                            <Text style={styles.fornecedorRankText}>{index + 1}º</Text>
+                          </View>
+                          <View style={styles.fornecedorInfo}>
+                            <Text style={styles.fornecedorNome} numberOfLines={1}>{fornec.nome}</Text>
+                            <Text style={styles.fornecedorCompras}>{fornec.num_compras} compra(s)</Text>
+                          </View>
+                          <View style={styles.fornecedorValor}>
+                            <Text style={styles.fornecedorTotal}>R$ {fornec.total.toFixed(2)}</Text>
+                            <Text style={styles.fornecedorPercent}>{fornec.porcentagem}%</Text>
+                          </View>
+                          <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* ===== COMPARATIVO ===== */}
+                  {statsData?.comparativo && (
+                    <View style={styles.analyticSection}>
+                      <Text style={styles.analyticSectionTitle}>📈 Comparativo</Text>
+                      <View style={styles.comparativoCard}>
+                        <View style={styles.comparativoRow}>
+                          <Text style={styles.comparativoLabel}>Período anterior:</Text>
+                          <Text style={styles.comparativoValue}>
+                            R$ {statsData.comparativo.total_anterior?.toFixed(2)}
+                          </Text>
+                        </View>
+                        <View style={styles.comparativoRow}>
+                          <Text style={styles.comparativoLabel}>Variação:</Text>
+                          <Text style={[
+                            styles.comparativoVariacao,
+                            { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
+                          ]}>
+                            {statsData.comparativo.tendencia === 'alta' ? '+' : ''}{statsData.comparativo.variacao_percentual}%
+                          </Text>
                         </View>
                       </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={{ alignItems: 'center', marginTop: 60 }}>
+                  <LottieAnimation name="empty" size={120} loop={false} />
+                  <Text style={styles.emptyText}>Nenhum dado encontrado</Text>
+                </View>
+              )}
+            </ScrollView>
 
-              {/* ===== GASTOS POR FORNECEDOR ===== */}
-              {fornecedoresData?.fornecedores?.length > 0 && (
-                <View style={styles.analyticSection}>
-                  <Text style={styles.analyticSectionTitle}>🏪 Top Fornecedores</Text>
-
-                  {fornecedoresData.fornecedores.map((fornec, index) => (
+            {/* Modal de Filtro */}
+            <Modal
+              visible={showFilterModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowFilterModal(false)}
+            >
+              <TouchableOpacity
+                style={styles.filterModalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <View style={styles.filterModalContent}>
+                  <Text style={styles.filterModalTitle}>Selecione o período</Text>
+                  {[
+                    { id: 'mes', label: 'Este Mês', icon: '📅' },
+                    { id: 'mesPassado', label: 'Mês Passado', icon: '⏮️' },
+                    { id: '3meses', label: 'Últimos 3 Meses', icon: '📊' },
+                    { id: 'ano', label: 'Este Ano', icon: '📆' },
+                  ].map(f => (
                     <TouchableOpacity
-                      key={index}
-                      style={styles.fornecedorRow}
-                      onPress={() => handleVendorDrillDown(fornec.nome)}
-                      activeOpacity={0.7}
+                      key={f.id}
+                      style={[
+                        styles.filterModalOption,
+                        dashboardFiltro === f.id && styles.filterModalOptionActive
+                      ]}
+                      onPress={() => {
+                        setDashboardFiltro(f.id);
+                        setShowFilterModal(false);
+                      }}
                     >
-                      <View style={styles.fornecedorRank}>
-                        <Text style={styles.fornecedorRankText}>{index + 1}º</Text>
-                      </View>
-                      <View style={styles.fornecedorInfo}>
-                        <Text style={styles.fornecedorNome} numberOfLines={1}>{fornec.nome}</Text>
-                        <Text style={styles.fornecedorCompras}>{fornec.num_compras} compra(s)</Text>
-                      </View>
-                      <View style={styles.fornecedorValor}>
-                        <Text style={styles.fornecedorTotal}>R$ {fornec.total.toFixed(2)}</Text>
-                        <Text style={styles.fornecedorPercent}>{fornec.porcentagem}%</Text>
-                      </View>
-                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                      <Text style={styles.filterModalOptionIcon}>{f.icon}</Text>
+                      <Text style={[
+                        styles.filterModalOptionText,
+                        dashboardFiltro === f.id && styles.filterModalOptionTextActive
+                      ]}>
+                        {f.label}
+                      </Text>
+                      {dashboardFiltro === f.id && (
+                        <Feather name="check" size={20} color={COLORS.primary} />
+                      )}
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              </TouchableOpacity>
+            </Modal>
 
-              {/* ===== COMPARATIVO ===== */}
-              {statsData?.comparativo && (
-                <View style={styles.analyticSection}>
-                  <Text style={styles.analyticSectionTitle}>📈 Comparativo</Text>
-                  <View style={styles.comparativoCard}>
-                    <View style={styles.comparativoRow}>
-                      <Text style={styles.comparativoLabel}>Período anterior:</Text>
-                      <Text style={styles.comparativoValue}>
-                        R$ {statsData.comparativo.total_anterior?.toFixed(2)}
+            {/* Modal de Drill-Down (Itens por Categoria/Fornecedor) */}
+            <Modal
+              visible={showDrillDownModal}
+              animationType="slide"
+              onRequestClose={() => setShowDrillDownModal(false)}
+            >
+              <SafeAreaView style={styles.drillDownContainer}>
+                <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+
+                {/* Header */}
+                <View style={styles.drillDownHeader}>
+                  <TouchableOpacity
+                    style={styles.drillDownBackButton}
+                    onPress={() => setShowDrillDownModal(false)}
+                  >
+                    <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
+                  </TouchableOpacity>
+                  <View style={styles.drillDownTitleContainer}>
+                    <Text style={styles.drillDownTitle}>
+                      {drillDownType === 'categoria' && drillDownData?.categoria ? (
+                        `${drillDownData.categoria.icone} ${drillDownData.categoria.nome}`
+                      ) : drillDownType === 'fornecedor' && drillDownData?.estabelecimento ? (
+                        `🏪 ${drillDownData.estabelecimento}`
+                      ) : 'Carregando...'}
+                    </Text>
+                    {drillDownData && (
+                      <Text style={styles.drillDownSubtitle}>
+                        {drillDownData.total_itens} itens • R$ {drillDownData.total_valor?.toFixed(2)}
                       </Text>
-                    </View>
-                    <View style={styles.comparativoRow}>
-                      <Text style={styles.comparativoLabel}>Variação:</Text>
-                      <Text style={[
-                        styles.comparativoVariacao,
-                        { color: statsData.comparativo.tendencia === 'alta' ? COLORS.danger : COLORS.success }
-                      ]}>
-                        {statsData.comparativo.tendencia === 'alta' ? '+' : ''}{statsData.comparativo.variacao_percentual}%
-                      </Text>
-                    </View>
+                    )}
                   </View>
                 </View>
-              )}
-            </>
-          ) : (
-            <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <LottieAnimation name="empty" size={120} loop={false} />
-              <Text style={styles.emptyText}>Nenhum dado encontrado</Text>
-            </View>
-          )}
-        </ScrollView>
 
-        {/* Modal de Filtro */}
-        <Modal
-          visible={showFilterModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowFilterModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.filterModalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowFilterModal(false)}
-          >
-            <View style={styles.filterModalContent}>
-              <Text style={styles.filterModalTitle}>Selecione o período</Text>
-              {[
-                { id: 'mes', label: 'Este Mês', icon: '📅' },
-                { id: 'mesPassado', label: 'Mês Passado', icon: '⏮️' },
-                { id: '3meses', label: 'Últimos 3 Meses', icon: '📊' },
-                { id: 'ano', label: 'Este Ano', icon: '📆' },
-              ].map(f => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[
-                    styles.filterModalOption,
-                    dashboardFiltro === f.id && styles.filterModalOptionActive
-                  ]}
-                  onPress={() => {
-                    setDashboardFiltro(f.id);
-                    setShowFilterModal(false);
-                  }}
-                >
-                  <Text style={styles.filterModalOptionIcon}>{f.icon}</Text>
-                  <Text style={[
-                    styles.filterModalOptionText,
-                    dashboardFiltro === f.id && styles.filterModalOptionTextActive
-                  ]}>
-                    {f.label}
-                  </Text>
-                  {dashboardFiltro === f.id && (
-                    <Feather name="check" size={20} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        {/* Modal de Drill-Down (Itens por Categoria/Fornecedor) */}
-        <Modal
-          visible={showDrillDownModal}
-          animationType="slide"
-          onRequestClose={() => setShowDrillDownModal(false)}
-        >
-          <SafeAreaView style={styles.drillDownContainer}>
-            <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-
-            {/* Header */}
-            <View style={styles.drillDownHeader}>
-              <TouchableOpacity
-                style={styles.drillDownBackButton}
-                onPress={() => setShowDrillDownModal(false)}
-              >
-                <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-              <View style={styles.drillDownTitleContainer}>
-                <Text style={styles.drillDownTitle}>
-                  {drillDownType === 'categoria' && drillDownData?.categoria ? (
-                    `${drillDownData.categoria.icone} ${drillDownData.categoria.nome}`
-                  ) : drillDownType === 'fornecedor' && drillDownData?.estabelecimento ? (
-                    `🏪 ${drillDownData.estabelecimento}`
-                  ) : 'Carregando...'}
-                </Text>
-                {drillDownData && (
-                  <Text style={styles.drillDownSubtitle}>
-                    {drillDownData.total_itens} itens • R$ {drillDownData.total_valor?.toFixed(2)}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/* Lista de Itens */}
-            {loadingDrillDown ? (
-              <View style={styles.drillDownLoading}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText}>Carregando itens...</Text>
-              </View>
-            ) : drillDownData?.itens?.length > 0 ? (
-              <FlatList
-                data={drillDownData.itens}
-                keyExtractor={(item, index) => `${item.item_id}-${index}`}
-                contentContainerStyle={{ padding: SIZES.padding }}
-                renderItem={({ item }) => (
-                  <View style={styles.drillDownItem}>
-                    <View style={styles.drillDownItemLeft}>
-                      <Text style={styles.drillDownItemName} numberOfLines={2}>
-                        {item.produto}
-                      </Text>
-                      <Text style={styles.drillDownItemMeta}>
-                        {drillDownType === 'categoria' ? item.estabelecimento : (
-                          `${item.categoria_icone || '📦'} ${item.categoria || 'Outros'}`
-                        )}
-                      </Text>
-                      <Text style={styles.drillDownItemDate}>
-                        {item.data_emissao ? new Date(item.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR') : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.drillDownItemRight}>
-                      <Text style={styles.drillDownItemValue}>
-                        R$ {item.valor?.toFixed(2)}
-                      </Text>
-                      <Text style={styles.drillDownItemQtd}>
-                        x{item.qtd}
-                      </Text>
-                    </View>
+                {/* Lista de Itens */}
+                {loadingDrillDown ? (
+                  <View style={styles.drillDownLoading}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>Carregando itens...</Text>
+                  </View>
+                ) : drillDownData?.itens?.length > 0 ? (
+                  <FlatList
+                    data={drillDownData.itens}
+                    keyExtractor={(item, index) => `${item.item_id}-${index}`}
+                    contentContainerStyle={{ padding: SIZES.padding }}
+                    renderItem={({ item }) => (
+                      <View style={styles.drillDownItem}>
+                        <View style={styles.drillDownItemLeft}>
+                          <Text style={styles.drillDownItemName} numberOfLines={2}>
+                            {item.produto}
+                          </Text>
+                          <Text style={styles.drillDownItemMeta}>
+                            {drillDownType === 'categoria' ? item.estabelecimento : (
+                              `${item.categoria_icone || '📦'} ${item.categoria || 'Outros'}`
+                            )}
+                          </Text>
+                          <Text style={styles.drillDownItemDate}>
+                            {item.data_emissao ? new Date(item.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR') : ''}
+                          </Text>
+                        </View>
+                        <View style={styles.drillDownItemRight}>
+                          <Text style={styles.drillDownItemValue}>
+                            R$ {item.valor?.toFixed(2)}
+                          </Text>
+                          <Text style={styles.drillDownItemQtd}>
+                            x{item.qtd}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  />
+                ) : (
+                  <View style={styles.drillDownEmpty}>
+                    <Text style={styles.emptyIcon}>📭</Text>
+                    <Text style={styles.emptyText}>Nenhum item encontrado</Text>
                   </View>
                 )}
-              />
-            ) : (
-              <View style={styles.drillDownEmpty}>
-                <Text style={styles.emptyIcon}>📭</Text>
-                <Text style={styles.emptyText}>Nenhum item encontrado</Text>
-              </View>
-            )}
-          </SafeAreaView>
-        </Modal>
+              </SafeAreaView>
+            </Modal>
+          </>
+        )}
       </SafeAreaView>
     );
   }
@@ -2495,7 +2527,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.sm,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + SIZES.sm : SIZES.sm,
     paddingBottom: SIZES.sm,
     minHeight: 50,
   },
@@ -2603,14 +2635,14 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     height: 32,
-    paddingHorizontal: 16,
+    width: 100, // Largura fixa para padronização total
     borderRadius: 20,
     backgroundColor: '#1E1E32',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    // marginRight removido - gap já cuida do espaçamento
   },
   filterChipActive: {
     backgroundColor: '#8B5CF6',
@@ -3069,7 +3101,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.sm,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + SIZES.sm : SIZES.sm,
     paddingBottom: SIZES.sm,
     backgroundColor: COLORS.background,
     gap: SIZES.sm,

@@ -1,36 +1,60 @@
 /**
- * KPIIcon - Renderiza ícones 3D para os KPIs do dashboard
+ * KPIIcon - Renderiza ícones vetoriais modernos para os KPIs do dashboard
+ * Substitui as imagens PNG antigas para remover fundo branco
  */
 
 import React from 'react';
-import { Image, View, StyleSheet } from 'react-native';
-import { COLORS, SIZES } from '../../theme';
+import { View, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { COLORS } from '../../theme';
 
-// Mapeamento de ícones KPI 3D
+// Mapeamento de ícones KPI com cores do tema
 const KPI_ICONS = {
-    money: require('../../assets/icons/money.png'),
-    chart: require('../../assets/icons/chart.png'),
-    receipt: require('../../assets/icons/receipt.png'),
-    store: require('../../assets/icons/store.png'),
+    money: {
+        name: 'dollar-sign',
+        color: COLORS.primary
+    },
+    chart: {
+        name: 'bar-chart-2',
+        color: COLORS.accent
+    },
+    receipt: {
+        name: 'file-text',
+        color: COLORS.success
+    },
+    store: {
+        name: 'shopping-bag',
+        color: COLORS.secondary
+    },
 };
 
 export default function KPIIcon({
     name,
-    size = 48,
+    size = 40,
     style
 }) {
-    const iconSource = KPI_ICONS[name];
+    const iconDef = KPI_ICONS[name];
 
-    if (!iconSource) {
-        return null;
+    if (!iconDef) {
+        return null; // Fallback ou null se não encontrar
     }
 
     return (
-        <View style={[styles.container, { width: size, height: size }, style]}>
-            <Image
-                source={iconSource}
-                style={{ width: size, height: size }}
-                resizeMode="contain"
+        <View style={[
+            styles.container,
+            {
+                width: size + 20,
+                height: size + 20,
+                // Fundo sutil colorido baseado na cor do ícone (glass effect)
+                backgroundColor: iconDef.color + '15', // 15% opacidade
+                borderColor: iconDef.color + '30',     // 30% opacidade na borda
+            },
+            style
+        ]}>
+            <Feather
+                name={iconDef.name}
+                size={size * 0.7} // Ícone levemente menor que o container
+                color={iconDef.color}
             />
         </View>
     );
@@ -40,5 +64,7 @@ const styles = StyleSheet.create({
     container: {
         justifyContent: 'center',
         alignItems: 'center',
+        borderRadius: 16,
+        borderWidth: 1,
     },
 });

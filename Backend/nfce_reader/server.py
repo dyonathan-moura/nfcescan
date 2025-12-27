@@ -996,6 +996,59 @@ async def dashboard_estatisticas(
 
 
 # ============================================================================
+# CHAT IA (Assistente Financeiro)
+# ============================================================================
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
+@app.post("/api/chat")
+async def chat_with_ai(
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Processa uma mensagem do usuário e retorna resposta estruturada.
+    
+    Usa IA (Groq/Llama) para:
+    - Analisar a intenção do usuário
+    - Gerar consultas SQL quando necessário
+    - Retornar dados formatados para widgets no frontend
+    
+    **Request:**
+    - message: Pergunta do usuário (ex: "Quanto gastei este mês?")
+    - history: Histórico de conversa (opcional)
+    
+    **Response:**
+    - type: Tipo de resposta (text_message, financial_summary, budget_progress, error)
+    - payload: Dados específicos para renderização do widget
+    - text: Texto opcional acompanhando o widget
+    """
+    from chat_service import get_chat_service
+    
+    if not request.message or len(request.message.strip()) < 2:
+        return {
+            "type": "error",
+            "payload": {
+                "message": "Mensagem muito curta",
+                "code": "INVALID_MESSAGE"
+            },
+            "text": None
+        }
+    
+    # Processar mensagem usando ChatService
+    chat_service = get_chat_service()
+    response = chat_service.process_message(
+        message=request.message,
+        db=db,
+        history=request.history
+    )
+    
+    return response
+
+
+# ============================================================================
 # UTILITÁRIOS
 # ============================================================================
 
