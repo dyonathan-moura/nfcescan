@@ -194,7 +194,7 @@ class LangChainService:
         
         try:
             # 1. Analisar intenção e decidir se precisa de SQL
-            intent = self._analyze_intent(message, callback)
+            intent = self._analyze_intent(message, db_session, callback)
             callback._log("INFO", "🔍", f"Intent: {intent.get('intent')} | SQL: {intent.get('requires_sql')}")
             
             # 2. Se precisa de SQL, executar query
@@ -219,13 +219,25 @@ class LangChainService:
             callback._log("ERROR", "💥", f"Erro: {str(e)}")
             return self._error_response(str(e), "PROCESSING_ERROR")
     
-    def _analyze_intent(self, message: str, callback: ChatLogCallback) -> Dict[str, Any]:
-        """Analisa intenção usando LLM."""
+    def _get_categories_from_db(self, db_session: Session) -> str:
+        """Busca categorias dinamicamente do banco de dados."""
+        try:
+            result = db_session.execute(text("SELECT nome FROM categorias ORDER BY nome"))
+            categories = [row[0] for row in result.fetchall()]
+            return ", ".join(categories) if categories else "Outros"
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao buscar categorias: {e}")
+            return "Outros"
+    
+    def _analyze_intent(self, message: str, db_session: Session, callback: ChatLogCallback) -> Dict[str, Any]:
+        """Analisa intenção usando LLM com categorias dinâmicas do banco."""
         
-        today = datetime.now()
+        # Buscar categorias dinamicamente
+        categories_list = self._get_categories_from_db(db_session)
+        callback._log("INFO", "📋", f"Categorias: {categories_list[:50]}...")
         
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """Você é um analisador de intenções financeiras para um app de controle de gastos.
+            ("system", f"""Você é um analisador de intenções financeiras para um app de controle de gastos.
 Analise a mensagem do usuário e retorne APENAS um JSON válido.
 
 SCHEMA DO BANCO (PostgreSQL):
@@ -233,23 +245,19 @@ SCHEMA DO BANCO (PostgreSQL):
 - itens (id, nota_id, nome, qtd, valor, categoria_id)
 - categorias (id, nome, icone)
 
-CATEGORIAS DISPONÍVEIS NO SISTEMA:
-Bebidas, Transporte, Casa, Limpeza, Higiene, Açougue, Hortifruti, Laticínios, 
-Padaria, Pet, Farmácia, Vestuário, Eletrônicos, Lazer, Mercearia, Congelados, 
-Ferramentas, Outros
+CATEGORIAS DISPONÍVEIS NO SISTEMA (dinâmico):
+{categories_list}
 
 REGRAS IMPORTANTES:
-1. Se o usuário mencionar uma CATEGORIA existente (ex: "mercado" → Mercearia, "comida" → Mercearia/Açougue/Hortifruti):
-   → Use JOIN com categorias e filtre por c.nome
+1. Se o usuário mencionar algo parecido com uma categoria existente, use JOIN com categorias e filtre por c.nome
+   Exemplos: "mercado"/"supermercado" → Mercearia, "comida" → Mercearia/Açougue/Hortifruti
    
-2. Se mencionou um ESTABELECIMENTO específico (ex: "Big", "Carrefour", "Uber"):
+2. Se mencionou um ESTABELECIMENTO específico (nome próprio como "Big", "Carrefour", "Uber"):
    → Filtre por LOWER(estabelecimento) LIKE '%nome%'
-
-3. "mercado" ou "supermercado" = buscar por CATEGORIA 'Mercearia' (NÃO por estabelecimento!)
 
 REGRAS SQL OBRIGATÓRIAS:
 - Tabela principal: notas_fiscais (NÃO "notas")
-- NUNCA use strings literais de data como '2025-12-27'
+- NUNCA use strings literais de data
 - SEMPRE use CURRENT_DATE
 
 FILTROS DE PERÍODO:
@@ -264,19 +272,16 @@ EXEMPLOS:
 1. "Quanto gastei?" (total geral):
    SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais
 
-2. "Quanto gastei em mercado?" (categoria Mercearia):
-   SELECT COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id WHERE c.nome = 'Mercearia'
+2. "Quanto gastei em [CATEGORIA]?":
+   SELECT COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id WHERE c.nome = 'NomeDaCategoria'
 
-3. "Quanto gastei em alimentação?" (várias categorias):
-   SELECT COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id WHERE c.nome IN ('Mercearia', 'Açougue', 'Hortifruti', 'Laticínios', 'Padaria', 'Congelados')
+3. "Quanto gastei em [ESTABELECIMENTO]?" (nome próprio):
+   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%nome%'
 
-4. "Quanto gastei no Carrefour?" (estabelecimento específico):
-   SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE LOWER(estabelecimento) LIKE '%carrefour%'
-
-5. "Gastos por categoria":
+4. "Gastos por categoria":
    SELECT c.nome as categoria, COALESCE(SUM(i.valor * i.qtd), 0) as total FROM itens i JOIN categorias c ON i.categoria_id = c.id GROUP BY c.nome ORDER BY total DESC
 
-6. "Quanto gastei este mês?":
+5. "Quanto gastei este mês?":
    SELECT COALESCE(SUM(total), 0) as total FROM notas_fiscais WHERE data_emissao >= DATE_TRUNC('month', CURRENT_DATE)
 
 Retorne JSON: {{"intent": "spending_query|category_query|establishment_query|general", "requires_sql": true|false, "sql_query": "SELECT..."}}"""),
